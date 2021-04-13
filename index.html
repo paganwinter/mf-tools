@@ -1,0 +1,250 @@
+<html>
+<head>
+<title></title>
+<script src="data/funds-list.js"></script>
+</head>
+<body>
+
+<select id="fund-category">
+  <option>Select</option>
+</select>
+
+<script>
+async function sleep(ms) {
+  return new Promise(function (resolve, reject) {
+    setTimeout(function () {
+      resolve()
+    }, ms)
+  })
+}
+
+function filterFunds(funds, category) {
+  let filteredFunds = funds
+    .filter(f => f.name.match(/growth/i))
+    // .filter(f => !f.name.match(/direct/i))
+    // .filter(f => f.fundClass.match(/(Equity|Other) Scheme/i))
+
+  if (category) {
+    return filteredFunds.filter(f => f.category === category)
+  }
+  return filteredFunds
+}
+
+
+function fmtNum(num) {
+  return num.toFixed(2)
+}
+
+function calcCgr(start, end, years) {
+  return ((Math.pow(end/start, 1/years) - 1) * 100)
+}
+function subtractYears(dateStr, years) {
+  let newDt = new Date(dateStr)
+  newDt.setMonth(newDt.getMonth() - 12)
+  return newDt.toISOString().substr(0, 10)
+}
+
+function calcRollingReturns(navs, years, indexData) {
+  let cagrs = []
+  let bmBeat = []
+  let bmDiff = []
+  let overlapCount = 0
+  let benchmarkBeatCount = 0
+
+  for (let endDtStr in navs) {
+    // let startDt = moment(endDtStr).subtract(years, 'years')
+    // let startDtStr = moment(startDt).format('yyyy-MM-DD')
+    let startDtStr = subtractYears(endDtStr, years)
+
+    if (navs[startDtStr]) {
+      let startNav = navs[startDtStr]
+      let endNav = navs[endDtStr]
+      let cagr = calcCgr(startNav, endNav, years)
+      cagrs.push(cagr)
+
+      if (indexData && indexData[years]) {
+        let benchmarkCagr = indexData[years][`${startDtStr}_${endDtStr}`]
+        if (typeof benchmarkCagr !== 'undefined') {
+          overlapCount++
+          if (cagr > benchmarkCagr) {
+            benchmarkBeatCount++
+          }
+          // bmBeat.push(cagr > benchmarkCagr)
+          bmDiff.push(cagr - benchmarkCagr)
+        }  
+      }
+    }
+  }
+
+  let min
+  let max
+  let avg
+  let count = cagrs.length
+  let percNeg
+  let percPos
+  // let benchmarkBeatPerc = fmtNum(bmBeat.filter(beat => beat).length / bmBeat.length * 100)
+  // let avgOverBenchmark = fmtNum(bmDiff.reduce((acc, item) => (acc + item), 0) / bmDiff.length)
+  let benchmarkBeatPerc
+  let avgOverBenchmark
+
+  if (overlapCount) {
+    benchmarkBeatPerc = fmtNum(benchmarkBeatCount / overlapCount * 100)
+  }
+  if (bmDiff.length) {
+    avgOverBenchmark = fmtNum(bmDiff.reduce((acc, item) => (acc + item), 0) / bmDiff.length)
+  }
+
+  if (cagrs.length > 0) {
+    min = fmtNum(Math.min(...cagrs))
+    max = fmtNum(Math.max(...cagrs))
+    avg = fmtNum(cagrs.reduce((acc, item) => (acc + item), 0) / cagrs.length)
+    percNeg = fmtNum(cagrs.filter(c => c < 0).length / count * 100)
+    percPos = fmtNum(cagrs.filter(c => c > 0).length / count * 100)
+  }
+  return { years, cagrs, min, max, avg, count, percNeg, percPos,
+    benchmarkBeatPerc,
+    avgOverBenchmark,
+  }
+}
+
+function calculateStats(navs, benchmark) {
+  let stats = {}
+
+  // s01: No of rollling return entries Index (1 Years)
+  // s02: No of rollling return entries Fund (1 years)
+  // s03: No of times fund has outperformed index (1 years)
+  // s04: (s03/s02) rolling return outperformance Consistency Score
+
+  // s05: upside performance consistency (percent of times fund performed better than category benchmark when benchmark was moving up)
+  // s06: downside protection consistency (percent of times fund performed better than category benchmark when benchmark was moving down)
+
+  // upside-capture-ratio = Upside-CAGR-Fund/Upside-CAGR-Index
+  // downside-capture-ratio = Downside-CAGR-Fund/Downside-CAGR-Index
+  // capture ratio = (upside capture / downside capture) - higher the better
+  // upside capture consistency = percent of times upside-capture-ratio was > 100%
+  // downside capture consistency = percent of times downside-capture-ratio was < 100%
+
+  // s07: no of times fund outperformed index by 25%
+  // s08: no of times fund underperformed index by 25%
+  // s09: % outperformance (by 25%)
+  // s10: % underperformance (by 25%)
+
+  // srinivesh screener
+  // % of various periods where the fund’s CAGR was among the top N in the category
+  // % of times when the fund's return was greater than the category median
+  // % of times when the fund's return was greater than the category median
+
+  // rolling returns for various periods
+  // count, min, max, average, negative-%, positive-%
+  // count of outperfromance over index, percent
+  // rolling return outperformance consistency score
+  // upside performance consistency
+  // downside protection consistency
+  let rollingReturns = []
+  for (let i = 1; i <= 10; i++) {
+    let rr = calcRollingReturns(navs, i, benchmark)
+    rollingReturns.push(rr)
+  }
+  stats.rollingReturns = rollingReturns
+
+  // trailing returns for various periods
+
+  // stats.alpha = calcAlpha()
+  // stats.beta = calcBeta()
+  // stats.rSq = calcRSq()
+  // stats.stdDev = calcStdDev()
+  // stats.sharpe = calcSharpe()
+
+  return stats
+}
+
+
+async function main(category) {
+  console.log(category) // Large%20%26%20Mid%20Cap%20Fund
+
+  let targetFunds = filterFunds(FUNDS_LIST, category)
+  console.log('Getting NAV for following funds:', targetFunds)
+
+  const funds = await Promise.all(targetFunds.map(async (fund) => {
+    console.log('Getting NAV for', fund.code, fund.name)
+    try {
+      const nav = await fetch(`https://api.mfapi.in/mf/${fund.code}`).then(res => res.json())
+      console.log('Got NAV for', fund.code, fund.name)
+      return { ...fund, nav }
+    } catch (error) {
+      console.log('Failed to get NAV for', fund.code, fund.name)
+      return { ...fund }
+    }
+  }))
+  console.log(funds)
+
+  for (let fund of funds) {
+    // console.log(fund)
+    let { code, name, fundClass, category, nav } = fund
+    console.log(code, name, fundClass, category)
+
+    let navArr = nav.data.map(dat => {
+      let [d, m, y] = dat.date.split('-')
+      return { date: `${y}-${m}-${d}`, nav: parseFloat(dat.nav) }
+    })
+    let navMap = {}
+    for (let n of navArr) {
+      navMap[n.date] = n.nav
+    }
+
+    let benchmarkData
+    // let benchmarkName = utils.getBenchmark(fund)
+    // let benchmarkData = benchmarkMap[benchmarkName]
+    const stats = calculateStats(navMap, benchmarkData)
+
+    let { rollingReturns } = stats
+    let avg = rollingReturns.map(r => r.avg)
+    let cnt = rollingReturns.map(r => r.count)
+    let pos = rollingReturns.map(r => r.percPos)
+    let neg = rollingReturns.map(r => r.percNeg)
+    let beatPerc = rollingReturns.map(r => r.benchmarkBeatPerc)
+    let beatAvg = rollingReturns.map(r => r.avgOverBenchmark)
+
+    console.log('  nav', navMap)
+    console.log('  avg', avg)
+    // console.log('  beatPerc', beatPerc)
+    // console.log('  beatAvg', beatAvg)
+    console.log('  pos', pos)
+    console.log('  neg', neg)
+    console.log('  cnt', cnt)
+  }
+}
+
+function populateFundCatList($fundCatSelect) {
+  FUND_CATEGORIES.forEach(category => {
+    let targetFunds = filterFunds(FUNDS_LIST, category)
+    const fundCount = targetFunds.length
+    const option = document.createElement('option');
+    option.value = category;
+    option.text = category + ' ('+fundCount+')';
+    $fundCatSelect.appendChild(option);
+  })
+}
+
+window.onload = async function () {
+  // const urlParams = new URLSearchParams(window.location.search);
+  // const category = urlParams.get('category');
+  console.log(FUNDS_LIST)
+  console.log(FUND_HOUSES)
+  console.log(FUND_CLASSES)
+  console.log(FUND_CATEGORIES)
+  console.log(FUND_CATEGORIES_RAW)
+
+  const $fundCatSelect = document.getElementById('fund-category')
+  populateFundCatList($fundCatSelect)
+  $fundCatSelect.onchange = function (e) {
+    const selectedCat = e.target.value
+    console.log(selectedCat)
+    main(selectedCat)
+  }
+
+  // main()
+}
+</script>
+</body>
+</html>
