@@ -15,11 +15,36 @@ const moment = require('moment')
 
 const DATA_DIR = './data'
 
-let INDICES = fs.readFileSync(path.join(DATA_DIR,  'indices.csv'), 'utf-8').split(/\r\n/g)
+const INDICES = [
+  'NIFTY 100',
+  'NIFTY LARGEMIDCAP 250',
+  'NIFTY MIDCAP 150',
+  'NIFTY SMALLCAP 50',
+  'NIFTY BANK',
+  'NIFTY INFRASTRUCTURE',
+  'NIFTY 50',
+  'NIFTY 200',
+  'NIFTY 500',
+  'NIFTY ADITYA BIRLA GROUP',
+  'NIFTY FMCG',
+  'NIFTY IT',
+  'NIFTY MEDIA',
+  'NIFTY MIDCAP 50',
+  'NIFTY MIDCAP 100',
+  'NIFTY MIDSMALLCAP 400',
+  'NIFTY NEXT 50',
+  'NIFTY PHARMA',
+  'NIFTY PRIVATE BANK',
+  'NIFTY SMALLCAP 100',
+  'NIFTY SMALLCAP 250',
+  'NIFTY500 SHARIAH',
+]
+
+// let INDICES = fs.readFileSync(path.join(DATA_DIR,  'indices.csv'), 'utf-8').split(/\r\n/g)
 console.log(INDICES)
 
 const startYear = 2006
-const endYear = 2020
+const endYear = 2021
 let years = []
 for (let yr = startYear; yr <= endYear; yr++) {
   years.push(yr)
@@ -62,6 +87,7 @@ async function fetchReturns(ind) {
     const toDate = '31-12-'+yr
     // console.log('  ', toDate)
     const nseUrl = `https://www.nseindia.com/products/dynaContent/equities/indices/total_returnindices.jsp?indexType=${indexType}&fromDate=${fromDate}&toDate=${toDate}`
+    console.log(nseUrl)
     calls.push(axios.get(nseUrl))
   }
   try {

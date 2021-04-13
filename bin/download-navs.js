@@ -8,7 +8,7 @@ const DATA_DIR = './data'
 
 const {
   getFundsData,
-} = require('./utils')
+} = require('../lib/utils')
 
 async function sleep(ms) {
   return new Promise(function (resolve, reject) {
@@ -64,8 +64,8 @@ async function main() {
   let growthFunds = funds.filter(f => f.name.match(/growth/i))
   let targetFunds = growthFunds
   console.log(targetFunds.length)
-  // await downloadNavs(targetFunds)
-  console.log(targetFunds.length)
+  await downloadNavs(targetFunds)
+  // console.log(targetFunds.length)
 
   downloadFailedNavs()
 }
