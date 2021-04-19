@@ -1,7 +1,7 @@
 <html>
 <head>
 <title></title>
-<script src="data/funds-list.js"></script>
+<script src="data/master-data.js"></script>
 <script src="sorTable.js"></script>
 <style>
 body {
@@ -24,9 +24,20 @@ td, th {
 <div id="log-box"></div>
 
 <div id="app">
-<select id="fund-category" v-on:change="loadCategoryFunds">
-  <option>Select</option>
-</select>
+<form>
+  <select id="fund-category" v-model="filters.fundCategory">
+    <option value="">Select Fund Category</option>
+  </select>
+  <select id="fund-class" v-model="filters.fundClass">
+    <option value="">Select Fund Class</option>
+  </select><br />
+<!-- 
+  <label for="fund-growth">Growth Funds</label><input type="checkbox" name="fund-growth" id="fund-growth" v-model="filters.growthFund" />
+  <label for="fund-direct">Direct Funds</label><input type="checkbox" name="fund-direct" id="fund-direct" v-model="filters.directFund" /><br />
+-->
+  <button v-on:click="loadFundData">Get Data</button>
+</form>
+
 <table class="sortable">
   <tr>
     <th>Fund</th>
@@ -59,15 +70,33 @@ async function sleep(ms) {
   })
 }
 
-function filterFunds(funds, category) {
+function filterFunds(funds, { fundCategory, fundClass, growth, direct }) {
   let filteredFunds = funds
-    .filter(f => f.name.match(/growth/i))
-    .filter(f => !f.name.match(/direct/i))
-    // .filter(f => f.fundClass.match(/(Equity|Other) Scheme/i))
 
-  if (category) {
-    return filteredFunds.filter(f => f.category === category)
+  if (fundCategory) {
+    filteredFunds = filteredFunds.filter(f => f.category === fundCategory)
   }
+  if (fundClass) {
+    filteredFunds = filteredFunds.filter(f => f.fundClass === fundClass)
+  }
+
+  if (growth) {
+    filteredFunds = filteredFunds.filter(f => f.name.match(/growth/i))
+  } else {
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/growth/i))
+  }
+
+  if (direct) {
+    filteredFunds = filteredFunds.filter(f => f.name.match(/direct/i))
+  } else {
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/direct/i))
+  }
+
+  // filteredFunds = filteredFunds
+  //   .filter(f => f.name.match(/growth/i))
+  //   .filter(f => !f.name.match(/direct/i))
+  //   // .filter(f => f.fundClass.match(/(Equity|Other) Scheme/i))
+
   return filteredFunds
 }
 
@@ -202,65 +231,71 @@ function calculateStats(navs, benchmark) {
 
 const FUNDS_CACHE = {}
 
-async function loadCategory(category) {
-  log(`Loading fund data for '${category}'...`)
-
-  if (!FUNDS_CACHE[category]) {
-    FUNDS_CACHE[category] = []
-
-    let targetFunds = filterFunds(FUNDS_LIST, category)
-    console.log('Getting NAV for following funds:', targetFunds)
-
-    const fundsWithNav = await Promise.all(targetFunds.map(async (fund) => {
-      log(`Getting NAV for ${fund.code} - ${fund.name}`)
-      try {
-        const nav = await fetch(`https://api.mfapi.in/mf/${fund.code}`).then(res => res.json())
-        log(`Got NAV for ${fund.code} - ${fund.name}`)
-        return { ...fund, rawNav: nav }
-      } catch (error) {
-        log(`Failed to get NAV for - ${fund.code} - ${fund.name}`)
-        return { ...fund }
-      }
-    }))
-    console.log(fundsWithNav)
-
-    for (let fund of fundsWithNav) {
-      log(`Calculating stats for ${fund.code} - ${fund.name}`)
-
-      let { code, name, fundClass, category, rawNav } = fund
-      console.log(code, name, fundClass, category)
-
-      const navMap = {}
-      rawNav.data.forEach(dat => {
-        const [d, m, y] = dat.date.split('-')
-        navMap[`${y}-${m}-${d}`] = parseFloat(dat.nav)
-      })
-      fund.navMap = navMap
-
-      let benchmarkData
-      // let benchmarkName = utils.getBenchmark(fund)
-      // let benchmarkData = benchmarkMap[benchmarkName]
-      fund.stats = calculateStats(navMap, benchmarkData)
-
-      FUNDS_CACHE[category].push({ ...fund })
-    }
+async function getFundNav(fund) {
+  log(`Getting NAV for ${fund.code} - ${fund.name}`)
+  try {
+    const nav = await fetch(`https://api.mfapi.in/mf/${fund.code}`).then(res => res.json())
+    log(`Got NAV for ${fund.code} - ${fund.name}`)
+    return nav
+  } catch (error) {
+    log(`Failed to get NAV for - ${fund.code} - ${fund.name}`)
+    return []
   }
+}
+async function getFundStats(fund) {
+  log(`Calculating stats for ${fund.code} - ${fund.name}`)
 
-  const fundsList = FUNDS_CACHE[category]
-  console.log(fundsList)
+  let { code, name, fundClass, category, rawNav } = fund
+  console.log(code, name, fundClass, category)
 
-  log(`Computed fund stats for '${category}'`)
-  return fundsList
+  const navMap = {}
+  rawNav.data.forEach(dat => {
+    const [d, m, y] = dat.date.split('-')
+    navMap[`${y}-${m}-${d}`] = parseFloat(dat.nav)
+  })
+
+  let benchmarkData
+  // let benchmarkName = utils.getBenchmark(fund)
+  // let benchmarkData = benchmarkMap[benchmarkName]
+  const stats = calculateStats(navMap, benchmarkData)
+  return { navMap, stats }
 }
 
-function populateFundCatList($fundCatSelect) {
+async function computeFundsData({ fundCategory, fundClass }) {
+  log('Loading fund data for')
+  log(`Category: '${fundCategory}'`)
+  log(`Class: '${fundClass}'`)
+  const targetFunds = filterFunds(FUNDS_LIST, { fundCategory, fundClass, growth: true, direct: false })
+  console.log(targetFunds)
+
+  const fundsWithStats = await Promise.all(targetFunds.map(async (fund) => {
+    if (!FUNDS_CACHE[fund.code]) {
+      fund.rawNav = await getFundNav(fund)
+      const fundStats = await getFundStats(fund)
+      FUNDS_CACHE[fund.code] = { ...fund, ...fundStats }
+    }
+    return FUNDS_CACHE[fund.code]
+  }))
+
+  console.log(fundsWithStats)
+  return fundsWithStats
+}
+
+function populateFundFilters($fundCatSelect, $fundClassSelect) {
   FUND_CATEGORIES.forEach(category => {
-    let targetFunds = filterFunds(FUNDS_LIST, category)
+    let targetFunds = filterFunds(FUNDS_LIST, { fundCategory: category, growth: true, direct: false })
     const fundCount = targetFunds.length
     const option = document.createElement('option');
     option.value = category;
     option.text = category + ' ('+fundCount+')';
     $fundCatSelect.appendChild(option);
+  })
+
+  FUND_CLASSES.forEach(fundClass => {
+    const option = document.createElement('option');
+    option.value = fundClass;
+    option.text = fundClass;
+    $fundClassSelect.appendChild(option);
   })
 }
 
@@ -276,13 +311,21 @@ window.onload = async function () {
   app = new Vue({
     el: '#app',
     data: {
+      filters: {
+        fundCategory: '',
+        fundClass: 'Equity Scheme',
+        growthFund: true,
+        directFund: false,
+      },
       funds: {},
     },
     methods: {
-      async loadCategoryFunds(e) {
+      async loadFundData(e) {
+        e.preventDefault();
+        console.log(this.filters)
         this.funds = {}
-        const selectedCat = e.target.value
-        const fundsList = await loadCategory(selectedCat)
+
+        const fundsList = await computeFundsData(this.filters)
         this.funds = fundsList
       },
       sort(e) {
@@ -303,7 +346,8 @@ window.onload = async function () {
   })
 
   const $fundCatSelect = document.getElementById('fund-category')
-  populateFundCatList($fundCatSelect)
+  const $fundClassSelect = document.getElementById('fund-class')
+  populateFundFilters($fundCatSelect, $fundClassSelect)
 
   // await test()
 }
