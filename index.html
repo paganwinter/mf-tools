@@ -25,10 +25,10 @@ td, th {
 
 <div id="app">
 <form>
-  <select id="fund-category" v-model="filters.fundCategory">
+  <select id="fund-category" v-model="filters.fundCategory" v-on:change="loadFundData">
     <option value="">Select Fund Category</option>
   </select>
-  <select id="fund-class" v-model="filters.fundClass">
+  <select id="fund-class" v-model="filters.fundClass" v-on:change="loadFundData">
     <option value="">Select Fund Class</option>
   </select><br />
 <!-- 
@@ -262,9 +262,7 @@ async function getFundStats(fund) {
 }
 
 async function computeFundsData({ fundCategory, fundClass }) {
-  log('Loading fund data for')
-  log(`Category: '${fundCategory}'`)
-  log(`Class: '${fundClass}'`)
+  log(`Loading fund data for category='${fundCategory}' class='${fundClass}'`)
   const targetFunds = filterFunds(FUNDS_LIST, { fundCategory, fundClass, growth: true, direct: false })
   console.log(targetFunds)
 
