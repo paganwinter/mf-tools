@@ -72,6 +72,7 @@ async function sleep(ms) {
 
 function filterFunds(funds, { fundCategory, fundClass, growth, direct }) {
   let filteredFunds = funds
+  console.log(filteredFunds)
 
   if (fundCategory) {
     filteredFunds = filteredFunds.filter(f => f.category === fundCategory)
@@ -79,6 +80,7 @@ function filterFunds(funds, { fundCategory, fundClass, growth, direct }) {
   if (fundClass) {
     filteredFunds = filteredFunds.filter(f => f.fundClass === fundClass)
   }
+  console.log(filteredFunds)
 
   if (growth) {
     filteredFunds = filteredFunds.filter(f => f.name.match(/growth/i))
@@ -311,7 +313,8 @@ window.onload = async function () {
     data: {
       filters: {
         fundCategory: '',
-        fundClass: 'Equity Scheme',
+        // fundClass: 'Equity Scheme',
+        fundClass: '',
         growthFund: true,
         directFund: false,
       },
