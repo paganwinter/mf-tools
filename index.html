@@ -314,7 +314,7 @@ function drawChart(fundsList, years = 1) {
   let seriesOptions = []
 
   console.log(fundsList)
-  fundsList.forEach(f => {
+  fundsList.forEach((f, i) => {
     const name = f.name
     names.push(name)
     let data = []
@@ -329,7 +329,8 @@ function drawChart(fundsList, years = 1) {
     })
 
     data = data.reverse()
-    seriesOptions.push({ name, data, showInLegend: true })
+    const visible = (i < 10) ? true : false
+    seriesOptions.push({ name, data, showInLegend: true, visible })
   })
   console.log(seriesOptions)
   // createStockChart({ seriesOptions })
