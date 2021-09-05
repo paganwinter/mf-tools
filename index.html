@@ -331,7 +331,7 @@ function drawChart(fundsList, years = 1) {
     })
 
     data = data.reverse()
-    const visible = (i < 10) ? true : false
+    const visible = (i < 3) ? true : false
     seriesOptions.push({ name, data, showInLegend: true, visible })
   })
   console.log(seriesOptions)
