@@ -2,7 +2,7 @@
 <head>
 <title></title>
 <script src="data/master-data.js"></script>
-<script src="sorTable.js"></script>
+<!-- <script src="sorTable.js"></script> -->
 <style>
 body {
   font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
@@ -17,8 +17,12 @@ td, th {
   padding: 3px;
 }
 </style>
+<!-- <script src="https://code.highcharts.com/stock/highstock.js"></script>
+<script src="https://code.highcharts.com/stock/modules/data.js"></script> -->
+<script src="https://code.highcharts.com/highcharts.js"></script>
 </head>
 <body>
+
 
 
 <div id="log-box"></div>
@@ -38,11 +42,13 @@ td, th {
   <button v-on:click="loadFundData">Get Data</button>
 </form>
 
+<div id="container" style="height: 800px; min-width: 310px"></div>
+
 <table class="sortable">
   <tr>
     <th>Fund</th>
     <th>Class</th>
-    <th v-on:click="sort" v-for="i in 10" :data-years="i" data-type="avgRR">{{ i }}Y RR</th>
+    <th v-on:click="sort" v-for="i in 10" :data-years="i" data-type="avgRR" style="cursor: pointer;">{{ i }}Y RR</th>
     <th v-for="i in 10">{{ i }}Y % +ve</th>
   </tr>
   <tr v-for="fund in funds">
@@ -72,7 +78,6 @@ async function sleep(ms) {
 
 function filterFunds(funds, { fundCategory, fundClass, growth, direct }) {
   let filteredFunds = funds
-  console.log(filteredFunds)
 
   if (fundCategory) {
     filteredFunds = filteredFunds.filter(f => f.category === fundCategory)
@@ -80,7 +85,6 @@ function filterFunds(funds, { fundCategory, fundClass, growth, direct }) {
   if (fundClass) {
     filteredFunds = filteredFunds.filter(f => f.fundClass === fundClass)
   }
-  console.log(filteredFunds)
 
   if (growth) {
     filteredFunds = filteredFunds.filter(f => f.name.match(/growth/i))
@@ -123,6 +127,7 @@ function calcRollingReturns(navs, years, indexData) {
   let bmDiff = []
   let overlapCount = 0
   let benchmarkBeatCount = 0
+  let cagrsWithDate = []
 
   for (let endDtStr in navs) {
     // let startDt = moment(endDtStr).subtract(years, 'years')
@@ -134,6 +139,11 @@ function calcRollingReturns(navs, years, indexData) {
       let endNav = navs[endDtStr]
       let cagr = calcCgr(startNav, endNav, years)
       cagrs.push(cagr)
+      cagrsWithDate.push({
+        startDate: startDtStr,
+        endDate: endDtStr,
+        cagr,
+      })
 
       if (indexData && indexData[years]) {
         let benchmarkCagr = indexData[years][`${startDtStr}_${endDtStr}`]
@@ -174,7 +184,7 @@ function calcRollingReturns(navs, years, indexData) {
     percNeg = fmtNum(cagrs.filter(c => c < 0).length / count * 100)
     percPos = fmtNum(cagrs.filter(c => c > 0).length / count * 100)
   }
-  return { years, cagrs, min, max, avg, count, percNeg, percPos,
+  return { years, cagrs, cagrsWithDate, min, max, avg, count, percNeg, percPos,
     benchmarkBeatPerc,
     avgOverBenchmark,
   }
@@ -299,6 +309,188 @@ function populateFundFilters($fundCatSelect, $fundClassSelect) {
   })
 }
 
+function drawChart(fundsList, years = 1) {
+  let names = []
+  let seriesOptions = []
+
+  console.log(fundsList)
+  fundsList.forEach(f => {
+    const name = f.name
+    names.push(name)
+    let data = []
+    // f.rawNav.data.forEach((d, i) => {
+    //   const dp = d.date.split('-')
+    //   const dt = (new Date(`${dp[2]}-${dp[1]}-${dp[0]}`)).getTime()
+    //   data.push([dt, +d.nav])
+    // })
+    f.stats.rollingReturns[years-1].cagrsWithDate.forEach((d, i) => {
+      const dt = (new Date(d.startDate)).getTime()
+      data.push([dt, +d.cagr])
+    })
+
+    data = data.reverse()
+    seriesOptions.push({ name, data, showInLegend: true })
+  })
+  console.log(seriesOptions)
+  // createStockChart({ seriesOptions })
+  createChart({ seriesOptions, years })
+  // testChart()
+
+  function testChart() {
+    let seriesCounter = 0
+    let names = ['MSFT', 'AAPL', 'GOOG'];
+    let seriesOptions = []
+
+    function success(data) {
+      var name = this.url.match(/(msft|aapl|goog)/)[0].toUpperCase();
+      var i = names.indexOf(name);
+
+      if (name === 'MSFT') {
+        data = data.slice(0, 100)
+      }
+      if (name === 'AAPL') {
+        data = data.slice(100, 200)
+      }
+      if (name === 'GOOG') {
+        data = data.slice(200, 300)
+      }
+      seriesOptions[i] = {
+          name: name,
+          data: data
+      };
+      // As we're loading the data asynchronously, we don't know what order it
+      // will arrive. So we keep a counter and create the chart when all the data is loaded.
+      seriesCounter += 1;
+      if (seriesCounter === names.length) {
+        createStockChart({ seriesOptions })
+      }
+    }
+    Highcharts.getJSON(
+      'https://cdn.jsdelivr.net/gh/highcharts/highcharts@v7.0.0/samples/data/msft-c.json',
+      success
+    );
+    Highcharts.getJSON(
+      'https://cdn.jsdelivr.net/gh/highcharts/highcharts@v7.0.0/samples/data/aapl-c.json',
+      success
+    );
+    Highcharts.getJSON(
+      'https://cdn.jsdelivr.net/gh/highcharts/highcharts@v7.0.0/samples/data/goog-c.json',
+      success
+    );
+
+  }
+
+  function createChart({ seriesOptions, years }) {
+    Highcharts.chart('container', {
+      chart: {
+        zoomType: 'x',
+        // marginRight: 120,
+      },
+      legend: {
+        enabled: true,
+        // align: 'right',
+        // verticalAlign: 'top',
+        // layout: 'vertical',
+        // x: 0,
+        // y: 100,
+        // layout: 'vertical',
+        // verticalAlign: '',
+        // align: '',
+      },
+      title: {
+        text: `Rolling Rate over ${years} years`,
+      },
+      subtitle: {
+        text: document.ontouchstart === undefined
+          ? 'Click and drag in the plot area to zoom in'
+          : 'Pinch the chart to zoom in'
+      },
+      xAxis: {
+        type: 'datetime'
+      },
+      yAxis: {
+        title: {
+          text: 'Rolling Returns'
+        }
+      },
+      plotOptions: {
+        area: {
+          _fillColor: {
+            linearGradient: {
+              x1: 0,
+              y1: 0,
+              x2: 0,
+              y2: 1
+            },
+            stops: [
+              [0, Highcharts.getOptions().colors[0]],
+              [1, Highcharts.color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
+            ]
+          },
+          marker: {
+            radius: 2
+          },
+          lineWidth: 1,
+          states: {
+            hover: {
+              lineWidth: 1
+            }
+          },
+          threshold: null
+        }
+      },
+
+      series: seriesOptions,
+      // series: [{ type: 'line', name: 'USD to EUR', data: data }]
+    });
+  }
+
+  function createStockChart({ seriesOptions }) {
+    Highcharts.stockChart('container', {
+      rangeSelector: {
+        selected: 4
+      },
+      legend: {
+        enabled: true,
+        // align: 'right',
+        // floating: true,
+      },
+      yAxis: {
+        labels: {
+          formatter: function () {
+            // return (this.value > 0 ? ' + ' : '') + this.value + '%';
+            return this.value
+          }
+        },
+        plotLines: [{
+          value: 0,
+          width: 2,
+          color: 'silver'
+        }]
+      },
+
+      plotOptions: {
+        series: {
+          // compare: 'percent',
+          compare: 'value',
+          showInNavigator: true
+        }
+      },
+
+      tooltip: {
+        pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+        valueDecimals: 2,
+        split: true,
+        distance: 100,
+      },
+
+      series: seriesOptions
+    });
+  }
+}
+
+
+
 window.onload = async function () {
   // const urlParams = new URLSearchParams(window.location.search);
   // const category = urlParams.get('category');
@@ -328,6 +520,7 @@ window.onload = async function () {
 
         const fundsList = await computeFundsData(this.filters)
         this.funds = fundsList
+        drawChart(fundsList)
       },
       sort(e) {
         const column = e.target
@@ -341,6 +534,7 @@ window.onload = async function () {
             if (aVal > bVal) return -1
             return 0
           })
+          drawChart(this.funds, column.dataset.years)
         }
       }
     },
@@ -376,6 +570,14 @@ async function test() {
 
   console.log(subtractYears('2021-04-14', 5))
 }
+</script>
+
+<script>
+
+// 'https://cdn.jsdelivr.net/gh/highcharts/highcharts@v7.0.0/samples/data/msft-c.json',
+// 'https://cdn.jsdelivr.net/gh/highcharts/highcharts@v7.0.0/samples/data/aapl-c.json',
+// 'https://cdn.jsdelivr.net/gh/highcharts/highcharts@v7.0.0/samples/data/goog-c.json',
+
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"></script>
