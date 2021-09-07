@@ -531,6 +531,7 @@ window.onload = async function () {
           favFunds[code] = true
         }
         localStorage.setItem('favFunds', JSON.stringify(favFunds));
+
         this.funds.forEach(f => {
           if (f.code === code) {
             f.fav = (f.fav) ? false : true
