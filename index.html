@@ -40,12 +40,14 @@ td, th {
 
 <div id="app">
 <form>
-  <!-- <select id="fund-codes" v-model="filters.fundCodes" _v-on:change="loadFundData" multiple>
-    <option value="">Select Funds</option>
-  </select> -->
-  <select id="fund-codes" multiple>
+  <select id="fund-codes" v-model="filters.fundCodes" _v-on:change="loadFundData" multiple>
     <!-- <option value="">Select Funds</option> -->
   </select>
+  <!--
+  <select id="fund-codes" multiple>
+    <option value="">Select Funds</option>
+  </select>
+  -->
   <select id="fund-category" v-model="filters.fundCategory" _v-on:change="loadFundData" multiple>
     <option value="">Select Fund Category</option>
   </select>
@@ -57,6 +59,7 @@ td, th {
   <label for="fund-direct">Direct Funds</label><input type="checkbox" name="fund-direct" id="fund-direct" v-model="filters.directFund" /><br />
 -->
   <button v-on:click="loadFundData">Get Data</button>
+  <button v-on:click="loadFavFunds">Favourites</button>
 </form>
 
 <div id="container" style="height: 800px; width: 100%; min-width: 720px"></div>
@@ -116,15 +119,17 @@ function filterFunds(funds, { fundCodes, fundCategory, fundClass, growth, direct
     filteredFunds = filteredFunds.filter(f => f.fundClass === fundClass)
   }
 
-  if (growth) {
+  if (growth === true) {
     filteredFunds = filteredFunds.filter(f => f.name.match(/growth/i))
-  } else {
+  }
+  if (growth === false) {
     filteredFunds = filteredFunds.filter(f => !f.name.match(/growth/i))
   }
 
-  if (direct) {
+  if (direct === true) {
     filteredFunds = filteredFunds.filter(f => f.name.match(/direct/i))
-  } else {
+  }
+  if (direct === false) {
     filteredFunds = filteredFunds.filter(f => !f.name.match(/direct/i))
   }
 
@@ -325,9 +330,9 @@ function populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect) 
     const option = document.createElement('option');
     option.value = fund.code;
     option.text = fund.name;
-    if (favFunds[fund.code]) (
-      option.selected = true
-    )
+    if (favFunds[fund.code]) {
+      // option.selected = true
+    }
     $fundCodeSelect.appendChild(option);
   })
   $('#fund-codes').select2({
@@ -479,8 +484,8 @@ window.onload = async function () {
         fundCategory: [],
         // fundClass: 'Equity Scheme',
         fundClass: '',
-        growthFund: true,
-        directFund: false,
+        growth: true,
+        direct: false,
       },
       funds: {},
     },
@@ -492,9 +497,12 @@ window.onload = async function () {
 
         const selectedFunds = $('#fund-codes').select2('data').map(o => o.id)
         this.filters.fundCodes = selectedFunds
+        console.log(this.filters.fundCodes)
         if (selectedFunds && selectedFunds.length > 0) {
           this.filters.fundCategory = []
           this.filters.fundClass = ''
+          this.growth = true
+          this.direct = false
         }
 
         console.log('filters:', this.filters)
@@ -506,6 +514,17 @@ window.onload = async function () {
         this.funds = await computeFundsData(filteredFunds)
         // console.log(this.funds)
         drawChart(this.funds)
+      },
+      loadFavFunds(e) {
+        e.preventDefault();
+        favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}')
+        this.filters.fundCodes = Object.keys(favFunds)
+        $('#fund-codes').val(this.filters.fundCodes)
+        $('#fund-codes').trigger('change')
+
+        for (let o of document.getElementById('fund-codes').options) {
+          // if (this.filters.fundCodes.includes(o.value)) { o.selected = true }
+        }
       },
       sort(e) {
         const column = e.target
@@ -538,7 +557,14 @@ window.onload = async function () {
           }
         })
       },
+      clearFundCodes() {
+        this.filters.fundCodes = []
+      }
     },
+  })
+  $('#fund-codes').on('select2:clear', function (e) {
+    console.log('clearing fund codes')
+    app.clearFundCodes()
   })
 
   const $fundCodeSelect = document.getElementById('fund-codes')
