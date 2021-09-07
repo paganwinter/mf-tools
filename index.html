@@ -23,6 +23,10 @@ td, th {
   border-collapse: collapse;
   padding: 3px;
 }
+
+.fund.fav {
+  font-weight: bold;
+}
 </style>
 <!-- <script src="https://code.highcharts.com/stock/highstock.js"></script>
 <script src="https://code.highcharts.com/stock/modules/data.js"></script> -->
@@ -65,7 +69,7 @@ td, th {
     <th v-for="i in 10">{{ i }}Y % +ve</th>
   </tr>
   <tr v-for="fund in funds">
-    <td>{{ fund.name }}</td>
+    <td :data-code="fund.code" class="fund" v-bind:class="(fund.fav) ? 'fav' :''" v-on:click="toggleFav">{{ fund.name }}</td>
     <td>{{ fund.category }}</td>
     <td v-for="year in fund.stats.rollingReturns">{{ year.avg }}</td>
     <td v-for="year in fund.stats.rollingReturns">{{ year.percPos }}</td>
@@ -80,6 +84,10 @@ function log(thing) {
   console.log(thing)
   $logBox.innerHTML = thing
 }
+
+let favFunds
+
+console.log(localStorage.getItem('favFunds'))
 
 async function sleep(ms) {
   return new Promise(function (resolve, reject) {
@@ -317,6 +325,9 @@ function populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect) 
     const option = document.createElement('option');
     option.value = fund.code;
     option.text = fund.name;
+    if (favFunds[fund.code]) (
+      option.selected = true
+    )
     $fundCodeSelect.appendChild(option);
   })
   $('#fund-codes').select2({
@@ -452,6 +463,14 @@ window.onload = async function () {
   console.log(FUND_CATEGORIES)
   console.log(FUND_CATEGORIES_RAW)
 
+  favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}')
+  FUNDS_LIST.forEach(f => {
+    if (favFunds[f.code]) {
+      f.fav = true
+    }
+  })
+  console.log(FUNDS_LIST)
+
   app = new Vue({
     el: '#app',
     data: {
@@ -502,7 +521,22 @@ window.onload = async function () {
           })
           drawChart(this.funds, column.dataset.years)
         }
-      }
+      },
+      toggleFav(e) {
+        const code = e.target.dataset.code
+
+        if (favFunds[code]) {
+          delete favFunds[code]
+        } else {
+          favFunds[code] = true
+        }
+        localStorage.setItem('favFunds', JSON.stringify(favFunds));
+        this.funds.forEach(f => {
+          if (f.code === code) {
+            f.fav = (f.fav) ? false : true
+          }
+        })
+      },
     },
   })
 
