@@ -393,7 +393,7 @@ function drawChart(fundsList, years = 1) {
         // align: '',
       },
       title: {
-        text: `Rolling Returns over ${years} years`,
+        text: `Rolling Returns over ${years} ${(years === 1) ? 'year' : 'years'}`,
       },
       subtitle: {
         text: document.ontouchstart === undefined
@@ -401,15 +401,15 @@ function drawChart(fundsList, years = 1) {
           : 'Pinch the chart to zoom in'
       },
       xAxis: {
-        type: 'datetime'
+        type: 'datetime',
       },
       yAxis: {
         title: {
-          text: 'Rolling Returns'
-        }
+          text: 'Rolling Returns',
+        },
       },
       plotOptions: {
-        area: {
+        line: {
           _fillColor: {
             linearGradient: {
               x1: 0,
@@ -428,11 +428,11 @@ function drawChart(fundsList, years = 1) {
           lineWidth: 1,
           states: {
             hover: {
-              lineWidth: 1
-            }
+              lineWidth: 3,
+            },
           },
           threshold: null
-        }
+        },
       },
 
       series: seriesOptions,
