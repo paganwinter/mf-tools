@@ -60,13 +60,13 @@ td, th {
 <table class="sortable">
   <tr>
     <th>Fund</th>
-    <th>Class</th>
+    <th>Category</th>
     <th v-on:click="sort" v-for="i in 10" :data-years="i" data-type="avgRR" style="cursor: pointer;">{{ i }}Y RR</th>
     <th v-for="i in 10">{{ i }}Y % +ve</th>
   </tr>
   <tr v-for="fund in funds">
     <td>{{ fund.name }}</td>
-    <td>{{ fund.fundClass }}</td>
+    <td>{{ fund.category }}</td>
     <td v-for="year in fund.stats.rollingReturns">{{ year.avg }}</td>
     <td v-for="year in fund.stats.rollingReturns">{{ year.percPos }}</td>
   </tr>
@@ -473,11 +473,10 @@ window.onload = async function () {
 
         const selectedFunds = $('#fund-codes').select2('data').map(o => o.id)
         this.filters.fundCodes = selectedFunds
-        // for(let o in document.getElementById('fund-codes').options) {
-        //   if (o.selected) {
-        //     console.log(o.selected = true)
-        //   }
-        // }
+        if (selectedFunds && selectedFunds.length > 0) {
+          this.filters.fundCategory = []
+          this.filters.fundClass = ''
+        }
 
         console.log('filters:', this.filters)
         const filteredFunds = filterFunds(FUNDS_LIST, this.filters)
