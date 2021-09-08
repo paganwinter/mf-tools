@@ -62,19 +62,19 @@ td, th {
   <button v-on:click="loadFavFunds">Favourites</button>
 </form>
 
-<div id="container" style="height: 800px; width: 100%; min-width: 720px"></div>
+<div id="chart-main" style="height: 0; width: 100%; min-width: 720px"></div>
 
 <table class="sortable">
   <tr>
-    <th>Fund</th>
+    <th v-on:click="plotNav" title="Plot NAVs" style="cursor: pointer;">Fund</th>
     <th>Category</th>
-    <th v-on:click="sort" v-for="i in 10" :data-years="i" data-type="avgRR" style="cursor: pointer;">{{ i }}Y RR</th>
+    <th title="Sort" v-on:click="sort" v-for="i in 10" :data-years="i" data-type="avgRR" style="cursor: pointer;">{{ i }}Y RR</th>
     <th v-for="i in 10">{{ i }}Y % +ve</th>
   </tr>
   <tr v-for="fund in funds">
-    <td :data-code="fund.code" class="fund" v-bind:class="(fund.fav) ? 'fav' :''" v-on:click="toggleFav">{{ fund.name }}</td>
+    <td :data-code="fund.code" class="fund" v-bind:class="(fund.fav) ? 'fav' : ''" v-on:click="toggleFav" style="cursor: pointer;">{{ fund.name }}</td>
     <td>{{ fund.category }}</td>
-    <td v-for="year in fund.stats.rollingReturns">{{ year.avg }}</td>
+    <td v-for="year in fund.stats.rollingReturns" :style="{'background-color':year.color}">{{ year.avg }}</td>
     <td v-for="year in fund.stats.rollingReturns">{{ year.percPos }}</td>
   </tr>
 </table>
@@ -372,7 +372,7 @@ function populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect) 
   })
 }
 
-function drawChart(fundsList, years = 1) {
+function drawChart(fundsList, years) {
   let names = []
   let seriesOptions = []
 
@@ -380,19 +380,30 @@ function drawChart(fundsList, years = 1) {
     const name = f.name
     names.push(name)
     let data = []
-    f.stats.rollingReturns[years-1].cagrsWithDate.forEach((d, i) => {
-      const dt = (new Date(d.startDate)).getTime()
-      data.push([dt, +d.cagr])
-    })
+
+    if (typeof years === 'undefined') {
+      f.rawNav.data.forEach((d) => {
+        const dp = d.date.split('-')
+        const dt = (new Date(`${dp[2]}-${dp[1]}-${dp[0]}`)).getTime()
+        data.push([dt, +d.nav])
+      })
+    } else {
+      f.stats.rollingReturns[years-1].cagrsWithDate.forEach((d) => {
+        const dt = (new Date(d.startDate)).getTime()
+        data.push([dt, +d.cagr])
+      })
+    }
 
     data = data.reverse()
-    const visible = (i < 5) ? true : false
+
+    const visible = (i < 8) ? true : false
     seriesOptions.push({ name, data, showInLegend: true, visible })
   })
+  document.getElementById('chart-main').style.height = '800px'
   createChart({ seriesOptions, years })
 
   function createChart({ seriesOptions, years }) {
-    Highcharts.chart('container', {
+    Highcharts.chart('chart-main', {
       chart: {
         zoomType: 'x',
         // marginRight: 120,
@@ -409,7 +420,7 @@ function drawChart(fundsList, years = 1) {
         // align: '',
       },
       title: {
-        text: `Rolling Returns over ${years} ${(years === 1) ? 'year' : 'years'}`,
+        text: years ? `Rolling Returns over ${years} ${(years === 1) ? 'year' : 'years'}` : 'NAV',
       },
       subtitle: {
         text: document.ontouchstart === undefined
@@ -462,11 +473,11 @@ function drawChart(fundsList, years = 1) {
 window.onload = async function () {
   // const urlParams = new URLSearchParams(window.location.search);
   // const category = urlParams.get('category');
-  console.log(FUNDS_LIST)
-  console.log(FUND_HOUSES)
+  // console.log(FUNDS_LIST)
+  // console.log(FUND_HOUSES)
   console.log(FUND_CLASSES)
-  console.log(FUND_CATEGORIES)
-  console.log(FUND_CATEGORIES_RAW)
+  // console.log(FUND_CATEGORIES)
+  // console.log(FUND_CATEGORIES_RAW)
 
   favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}')
   FUNDS_LIST.forEach(f => {
@@ -513,6 +524,32 @@ window.onload = async function () {
 
         this.funds = await computeFundsData(filteredFunds)
         // console.log(this.funds)
+
+
+        // assign color gradient based on average rolling returns
+        // const COLOR_LOW = { red: 217, green: 83, blue: 79 }
+        const COLOR_LOW = { red: 256, green: 256, blue: 256 }
+        const COLOR_HIGH = { red: 92, green: 184, blue: 91 }
+        for (let i = 0; i < 10; i++) {
+          const yearInd = i
+          const rrAvgs = this.funds.map(f => f.stats.rollingReturns[yearInd].avg).filter(rrAvgs => (typeof rrAvgs !== 'undefined'))
+          const min = Math.min(...rrAvgs)
+          const max = Math.max(...rrAvgs)
+          // console.log(rrAvgs, min, max)
+
+          this.funds.forEach(f => {
+            // console.log(f.stats.rollingReturns[yearInd].avg, typeof f.stats.rollingReturns[yearInd].avg)
+            if (typeof f.stats.rollingReturns[yearInd].avg !== 'undefined') {
+              const perc = (f.stats.rollingReturns[yearInd].avg - min) / (max - min)
+              // console.log(f.name, yearInd, perc, min, max)
+              f.stats.rollingReturns[yearInd].color = colorGradient(perc, COLOR_LOW, COLOR_HIGH)
+            } else {
+              f.stats.rollingReturns[yearInd].color = 'transparent'
+            }
+          })
+        }
+
+        console.log('drawing NAV chart')
         drawChart(this.funds)
       },
       loadFavFunds(e) {
@@ -538,8 +575,13 @@ window.onload = async function () {
             if (aVal > bVal) return -1
             return 0
           })
+
+          console.log('drawing chart')
           drawChart(this.funds, column.dataset.years)
         }
+      },
+      plotNav(e) {
+        drawChart(this.funds)
       },
       toggleFav(e) {
         const code = e.target.dataset.code
@@ -571,6 +613,37 @@ window.onload = async function () {
   const $fundCatSelect = document.getElementById('fund-category')
   const $fundClassSelect = document.getElementById('fund-class')
   populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect)
+}
+
+
+function colorGradient(fadeFraction, rgbColor1, rgbColor2, rgbColor3) {
+  var color1 = rgbColor1;
+  var color2 = rgbColor2;
+  var fade = fadeFraction;
+
+  // Do we have 3 colors for the gradient? Need to adjust the params.
+  if (rgbColor3) {
+    fade = fade * 2;
+
+    // Find which interval to use and adjust the fade percentage
+    if (fade >= 1) {
+      fade -= 1;
+      color1 = rgbColor2;
+      color2 = rgbColor3;
+    }
+  }
+
+  var diffRed = color2.red - color1.red;
+  var diffGreen = color2.green - color1.green;
+  var diffBlue = color2.blue - color1.blue;
+
+  var gradient = {
+    red: parseInt(Math.floor(color1.red + (diffRed * fade)), 10),
+    green: parseInt(Math.floor(color1.green + (diffGreen * fade)), 10),
+    blue: parseInt(Math.floor(color1.blue + (diffBlue * fade)), 10),
+  };
+
+  return 'rgb(' + gradient.red + ',' + gradient.green + ',' + gradient.blue + ')';
 }
 
 async function test() {
