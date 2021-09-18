@@ -1,0 +1,70 @@
+<html>
+<head>
+<title>Mutual Funds Screener</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="data/master-data.js"></script>
+<style>
+  body {
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+  }
+  table {
+    border: 1px solid #ddd;
+    border-collapse: collapse;
+  }
+  td, th {
+    border: 1px solid #ddd;
+    border-collapse: collapse;
+    padding: 3px;
+  }
+  
+  .fund.fav {
+    font-weight: bold;
+  }
+  </style>
+  <!-- <script src="https://code.highcharts.com/stock/highstock.js"></script>
+  <script src="https://code.highcharts.com/stock/modules/data.js"></script> -->
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+</head>
+<body>
+<script>
+async function getFunds() {
+  const fundsCsv = await fetch('data/funds.csv').then(res => res.text())
+  const funds = []
+  fundsCsv.split('\n').forEach(f => {
+    const [category, code, name, fundHouse, rawCategory] = f.split(',').map(cell => cell.slice(1, -1))
+    funds.push({ category, code, name, fundHouse, rawCategory })
+  })
+  return funds
+}
+
+window.onload = async function () {
+  console.log(FUNDS_LIST)
+  console.log(FUND_HOUSES)
+  console.log(FUND_CLASSES)
+  console.log(FUND_CATEGORIES)
+  console.log(FUND_CATEGORIES_RAW)
+
+  let csv = []
+  csv.push('"Category","Code","Name","AMC","Raw Category","Class"')
+
+  const catsRaw = {}
+  const cats = {}
+
+  FUNDS_LIST.forEach(f => {
+    const category = f.rawCategory.match(/\(([^)]+)\)/)[1]
+    catsRaw[f.rawCategory] = true
+    cats[category] = true
+    csv.push(`"${category}","${f.code}","${f.name}","${f.fundHouse}","${f.rawCategory}","${f.fundClass}"`)
+  })
+  console.log(csv.join('\n'))
+  // console.log(Object.keys(catsRaw).join('\n'))
+  console.log(Object.keys(cats).join('\n'))
+
+  const funds = await getFunds()
+  console.log(funds)
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"></script>
+</body>
+</html>

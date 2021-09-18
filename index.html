@@ -3,8 +3,7 @@
 <title>Mutual Funds Screener</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<script src="data/master-data.js"></script>
-<!-- <script src="sorTable.js"></script> -->
+<!-- <script src="data/master-data.js"></script> -->
 
 <script src="https://code.jquery.com/jquery-3.1.1.min.js" crossorigin="anonymous"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
@@ -41,23 +40,15 @@ td, th {
 <div id="app">
 <form>
   <select id="fund-codes" v-model="filters.fundCodes" _v-on:change="loadFundData" multiple>
-    <!-- <option value="">Select Funds</option> -->
-  </select>
-  <!--
-  <select id="fund-codes" multiple>
     <option value="">Select Funds</option>
   </select>
-  -->
-  <select id="fund-category" v-model="filters.fundCategory" _v-on:change="loadFundData" multiple>
+
+  <select id="fund-category" style="width: 100%; height: 200px;" v-model="filters.fundCategory" _v-on:change="loadFundData" multiple>
     <option value="">Select Fund Category</option>
-  </select>
-  <select id="fund-class" v-model="filters.fundClass">
-    <option value="">Select Fund Class</option>
   </select><br />
-<!-- 
-  <label for="fund-growth">Growth Funds</label><input type="checkbox" name="fund-growth" id="fund-growth" v-model="filters.growthFund" />
-  <label for="fund-direct">Direct Funds</label><input type="checkbox" name="fund-direct" id="fund-direct" v-model="filters.directFund" /><br />
--->
+  Growth:</label><input type="checkbox" id="fund-growth" v-model="filters.growth" /> Dividend:<input type="checkbox" id="fund-dividend" v-model="filters.dividend" /><br />
+  Regular: <input type="checkbox" id="fund-regular" v-model="filters.regular" /> Direct:</label><input type="checkbox" id="fund-direct" v-model="filters.direct" /><br />
+  Plot: All:<input type="checkbox" id="plot-all" v-model="plot.all" /> Top:<input type="number" id="plot-top" v-model="plot.top" /><br />
   <button v-on:click="loadFundData">Get Data</button>
   <button v-on:click="loadFavFunds">Favourites</button>
 </form>
@@ -88,6 +79,10 @@ function log(thing) {
   $logBox.innerHTML = thing
 }
 
+let FUNDS_LIST = []
+let FUND_CATEGORIES = []
+const FUNDS_CACHE = {}
+
 let favFunds
 
 console.log(localStorage.getItem('favFunds'))
@@ -100,8 +95,8 @@ async function sleep(ms) {
   })
 }
 
-function filterFunds(funds, { fundCodes, fundCategory, fundClass, growth, direct }) {
-  let filteredFunds = funds
+function filterFunds(allFunds, { fundCategory, growth, dividend, regular, direct, fundCodes, fundClass }) {
+  let filteredFunds = allFunds
 
   if (fundCodes && fundCodes.length > 0) {
     filteredFunds = filteredFunds.filter(f => fundCodes.includes(f.code))
@@ -115,21 +110,21 @@ function filterFunds(funds, { fundCodes, fundCategory, fundClass, growth, direct
       filteredFunds = filteredFunds.filter(f => f.category === fundCategory)
     }
   }
-  if (fundClass) {
-    filteredFunds = filteredFunds.filter(f => f.fundClass === fundClass)
-  }
+  // if (fundClass) {
+  //   filteredFunds = filteredFunds.filter(f => f.fundClass === fundClass)
+  // }
 
-  if (growth === true) {
+  if (growth && !dividend) {
     filteredFunds = filteredFunds.filter(f => f.name.match(/growth/i))
   }
-  if (growth === false) {
+  if (!growth && dividend) {
     filteredFunds = filteredFunds.filter(f => !f.name.match(/growth/i))
   }
 
-  if (direct === true) {
+  if (direct && !regular) {
     filteredFunds = filteredFunds.filter(f => f.name.match(/direct/i))
   }
-  if (direct === false) {
+  if (!direct && regular) {
     filteredFunds = filteredFunds.filter(f => !f.name.match(/direct/i))
   }
 
@@ -138,7 +133,7 @@ function filterFunds(funds, { fundCodes, fundCategory, fundClass, growth, direct
   //   .filter(f => !f.name.match(/direct/i))
   //   // .filter(f => f.fundClass.match(/(Equity|Other) Scheme/i))
 
-  if (filteredFunds.length === funds.length) {
+  if (filteredFunds.length === allFunds.length) {
     return []
   }
   return filteredFunds
@@ -148,7 +143,6 @@ function filterFunds(funds, { fundCodes, fundCategory, fundClass, growth, direct
 function fmtNum(num) {
   return +num.toFixed(2)
 }
-
 function calcCgr(start, end, years) {
   return ((Math.pow(end/start, 1/years) - 1) * 100)
 }
@@ -158,7 +152,6 @@ function subtractYears(dateStr, years) {
   newDt.setMonth(newDt.getMonth() - months)
   return newDt.toISOString().substr(0, 10)
 }
-
 function calcRollingReturns(navs, years, indexData) {
   let cagrs = []
   let bmBeat = []
@@ -227,7 +220,6 @@ function calcRollingReturns(navs, years, indexData) {
     avgOverBenchmark,
   }
 }
-
 function calculateStats(navs, benchmark) {
   let stats = {}
 
@@ -279,7 +271,26 @@ function calculateStats(navs, benchmark) {
   return stats
 }
 
-const FUNDS_CACHE = {}
+
+async function getMasterData() {
+  const FUNDS_LIST = []
+  const fundsCsv = await fetch('data/funds.csv').then(res => res.text())
+  fundsCsv.split('\n').forEach(f => {
+    if (f) {
+      const [category, code, name, fundHouse, rawCategory] = f.split(',')
+        .map(cell => {
+          if (cell.startsWith('"')) cell = cell.substr(1)
+          if (cell.endsWith('"')) cell = cell.substr(-1)
+          return cell
+        })
+      FUNDS_LIST.push({ category, code, name, fundHouse, rawCategory })
+    }
+  })
+
+  const fundCats = await fetch('data/fund-categories.csv').then(res => res.text())
+  const FUND_CATEGORIES = fundCats.split('\n').filter(line => line) // remove empty lines
+  return { FUNDS_LIST, FUND_CATEGORIES }
+}
 
 async function getFundNav(fund) {
   log(`Getting NAV for ${fund.code} - ${fund.name}`)
@@ -354,7 +365,7 @@ function populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect) 
   });
 
   FUND_CATEGORIES.forEach(category => {
-    let targetFunds = filterFunds(FUNDS_LIST, { fundCategory: category, growth: true, direct: false })
+    let targetFunds = filterFunds(FUNDS_LIST, { fundCategory: category, growth: true, dividend: false, regular: true, direct: false })
     const fundCount = targetFunds.length
     const option = document.createElement('option');
     option.value = category;
@@ -362,17 +373,17 @@ function populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect) 
     $fundCatSelect.appendChild(option);
   })
 
-  FUND_CLASSES.forEach(fundClass => {
-    let targetFunds = filterFunds(FUNDS_LIST, { fundClass, growth: true, direct: false })
-    const fundCount = targetFunds.length
-    const option = document.createElement('option');
-    option.value = fundClass;
-    option.text = `${fundClass} (${fundCount})`;
-    $fundClassSelect.appendChild(option);
-  })
+  // FUND_CLASSES.forEach(fundClass => {
+  //   let targetFunds = filterFunds(FUNDS_LIST, { fundClass, growth: true, direct: false })
+  //   const fundCount = targetFunds.length
+  //   const option = document.createElement('option');
+  //   option.value = fundClass;
+  //   option.text = `${fundClass} (${fundCount})`;
+  //   $fundClassSelect.appendChild(option);
+  // })
 }
 
-function drawChart(fundsList, years) {
+function drawChart(fundsList, years, plot) {
   let names = []
   let seriesOptions = []
 
@@ -381,7 +392,7 @@ function drawChart(fundsList, years) {
     names.push(name)
     let data = []
 
-    if (typeof years === 'undefined') {
+    if (!years) { // plot nav if not sorted by rolling return years
       f.rawNav.data.forEach((d) => {
         const dp = d.date.split('-')
         const dt = (new Date(`${dp[2]}-${dp[1]}-${dp[0]}`)).getTime()
@@ -389,14 +400,16 @@ function drawChart(fundsList, years) {
       })
     } else {
       f.stats.rollingReturns[years-1].cagrsWithDate.forEach((d) => {
-        const dt = (new Date(d.startDate)).getTime()
+        const dt = (new Date(d.endDate)).getTime()
         data.push([dt, +d.cagr])
       })
     }
 
     data = data.reverse()
 
-    const visible = (i < 8) ? true : false
+    const visible = (plot.all)
+      ? true
+      : (i < plot.top) ? true : false
     seriesOptions.push({ name, data, showInLegend: true, visible })
   })
   document.getElementById('chart-main').style.height = '800px'
@@ -471,12 +484,17 @@ function drawChart(fundsList, years) {
 
 
 window.onload = async function () {
+  const masterData = await getMasterData()
+  FUNDS_LIST = masterData.FUNDS_LIST
+  FUND_CATEGORIES = masterData.FUND_CATEGORIES
+
+  console.log(FUNDS_LIST)
+  console.log(FUND_CATEGORIES)
+
   // const urlParams = new URLSearchParams(window.location.search);
   // const category = urlParams.get('category');
-  // console.log(FUNDS_LIST)
   // console.log(FUND_HOUSES)
-  console.log(FUND_CLASSES)
-  // console.log(FUND_CATEGORIES)
+  // console.log(FUND_CLASSES)
   // console.log(FUND_CATEGORIES_RAW)
 
   favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}')
@@ -490,15 +508,21 @@ window.onload = async function () {
   app = new Vue({
     el: '#app',
     data: {
+      funds: {},
       filters: {
         fundCodes: [],
         fundCategory: [],
         // fundClass: 'Equity Scheme',
         fundClass: '',
         growth: true,
+        dividend: false,
         direct: false,
+        regular: true,
       },
-      funds: {},
+      plot: {
+        all: true,
+        top: 5,
+      },
     },
     methods: {
       async loadFundData(e) {
@@ -525,7 +549,6 @@ window.onload = async function () {
         this.funds = await computeFundsData(filteredFunds)
         // console.log(this.funds)
 
-
         // assign color gradient based on average rolling returns
         // https://gist.github.com/gskema/2f56dc2e087894ffc756c11e6de1b5ed
         // const COLOR_LOW = { red: 217, green: 83, blue: 79 }
@@ -551,7 +574,7 @@ window.onload = async function () {
         }
 
         console.log('drawing NAV chart')
-        drawChart(this.funds)
+        drawChart(this.funds, null, this.plot)
       },
       loadFavFunds(e) {
         e.preventDefault();
@@ -578,11 +601,11 @@ window.onload = async function () {
           })
 
           console.log('drawing chart')
-          drawChart(this.funds, column.dataset.years)
+          drawChart(this.funds, column.dataset.years, this.plot)
         }
       },
       plotNav(e) {
-        drawChart(this.funds)
+        drawChart(this.funds, null, this.plot)
       },
       toggleFav(e) {
         const code = e.target.dataset.code
@@ -681,5 +704,10 @@ async function test() {
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"></script>
+<foot>
+<a href="https://thefundoo.com">https://thefundoo.com</a><br />
+<a href="https://www.rupeevest.com/Mutual-Funds-India/Screener">https://www.rupeevest.com/Mutual-Funds-India/Screener</a><br />
+<a href="https://www.valueresearchonline.com/funds/selector">https://www.valueresearchonline.com/funds/selector</a><br />
+</foot>
 </body>
 </html>
