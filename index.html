@@ -43,7 +43,7 @@ td, th {
     <option value="">Select Funds</option>
   </select>
 
-  <select id="fund-category" style="width: 100%; height: 200px;" v-model="filters.fundCategory" _v-on:change="loadFundData" multiple>
+  <select id="fund-category" style="width: 100%;" v-model="filters.fundCategory" _v-on:change="loadFundData" multiple>
     <option value="">Select Fund Category</option>
   </select><br />
   Growth:</label><input type="checkbox" id="fund-growth" v-model="filters.growth" /> Dividend:<input type="checkbox" id="fund-dividend" v-model="filters.dividend" /><br />
