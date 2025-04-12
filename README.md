@@ -1,13 +1,12 @@
 ## MF Analysis Tools
 
-Utility to analyse Indian Mutual Funds.
+Utility to screen Indian Mutual Funds.
+https://paganwinter.github.io/mf-tools/screen.html
 - Produces Average Rolling Returns for 1,2,3,..10 year windows for selected funds.
 - Allows filtering funds by type or name.
 - Allows adding funds to watchlist.
 
-Work in progress
-
-https://paganwinter.github.io/mf-tools/index.html
+old version: https://paganwinter.github.io/mf-tools/index.html
 
 <!-- ## Download data
 ```bash
