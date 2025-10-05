@@ -33,6 +33,7 @@ jobs:
 
       - name: Commit changes
         run: |
+          git add data-v2/NAVOpen.txt
           git add data-v2/funds-data.json
           git add data-v2/funds.csv
           git add data-v2/fund-stats.json

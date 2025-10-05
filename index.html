@@ -95,7 +95,7 @@ async function sleep(ms) {
   })
 }
 
-function filterFunds(allFunds, { fundCategory, growth, dividend, regular, direct, fundCodes, fundClass }) {
+function filterFunds(allFunds, { fundCategory, growth, dividend, regular, direct, fundCodes, fundScheme }) {
   let filteredFunds = allFunds
 
   if (fundCodes && fundCodes.length > 0) {
@@ -110,8 +110,8 @@ function filterFunds(allFunds, { fundCategory, growth, dividend, regular, direct
       filteredFunds = filteredFunds.filter(f => f.category === fundCategory)
     }
   }
-  // if (fundClass) {
-  //   filteredFunds = filteredFunds.filter(f => f.fundClass === fundClass)
+  // if (fundScheme) {
+  //   filteredFunds = filteredFunds.filter(f => f.scheme === fundScheme)
   // }
 
   if (growth && !dividend) {
@@ -131,7 +131,7 @@ function filterFunds(allFunds, { fundCategory, growth, dividend, regular, direct
   // filteredFunds = filteredFunds
   //   .filter(f => f.name.match(/growth/i))
   //   .filter(f => !f.name.match(/direct/i))
-  //   // .filter(f => f.fundClass.match(/(Equity|Other) Scheme/i))
+  //   // .filter(f => f.fundScheme.match(/(Equity|Other) Scheme/i))
 
   if (filteredFunds.length === allFunds.length) {
     return []
@@ -272,24 +272,115 @@ function calculateStats(navs, benchmark) {
 }
 
 
-async function getMasterData() {
-  const FUNDS_LIST = []
-  const fundsCsv = await fetch('data/funds.csv').then(res => res.text())
-  fundsCsv.split('\n').forEach(f => {
-    if (f) {
-      const [category, code, name, fundHouse, rawCategory] = f.split(',')
-        .map(cell => {
-          if (cell.startsWith('"')) cell = cell.substr(1)
-          if (cell.endsWith('"')) cell = cell.substr(-1)
-          return cell
-        })
-      FUNDS_LIST.push({ category, code, name, fundHouse, rawCategory })
-    }
-  })
+function parseCategory(amfiCat) {
+  let [, type, category] = amfiCat.match(/(.+?)\((.+)\)/)
+  // let [scheme, category] = schemeCategory.split(' - ')
+  // if (!category) category = scheme
+  let [scheme] = category.split(' - ')
+  return { type, scheme, category }
+}
+function parseAMFIData(data) {
+  data = data.replace(/\r?\n/g, '\n')
+  let lines = data.split(/\n/)
 
-  const fundCats = await fetch('data/fund-categories.csv').then(res => res.text())
-  const FUND_CATEGORIES = fundCats.split('\n').filter(line => line) // remove empty lines
-  return { FUNDS_LIST, FUND_CATEGORIES }
+  const funds = []
+  let fundHouses = {}
+  let rawCategories = {}
+  let types = {}
+  let schemes = {}
+  let categories = {}
+
+  const FUND_LINE_REGEX = /^\d+;/
+
+  // below are set as and when those lines are encountered
+  // and used by subsequent funds
+  let currentFundHouse
+  let currentRawCategory
+  for (let i = 1; i < lines.length; i++) {
+    let line = lines[i]
+
+    // ignore empty lines
+    if (line.match(/^\s+$/)) continue
+
+    if (FUND_LINE_REGEX.test(line)) {
+      // line with fund data
+      let [code, isinDivPayGrowth, isiniDivReinvest, name, aum, date] = line.split(';')
+
+      // fundHouse and rawCategory would have been set while parsing earlier lines
+      const fundHouse = currentFundHouse
+      const { type, scheme, category } = rawCategories[currentRawCategory]
+
+      types[type] = true
+      schemes[scheme] = true
+      categories[category] = true
+
+      // TODO
+      // growth vs dividend
+      // regular vs direct
+      // let growth = !!name.match(/growth/i)
+
+      let fund = {
+        code,
+        name,
+        fundHouse,
+        rawCategory: currentRawCategory,
+        type,
+        scheme,
+        category,
+        aum,
+        date,
+        isinDivPayGrowth,
+        isiniDivReinvest
+      }
+      funds.push(fund)
+    } else if (lines[i + 1] === ' ' && FUND_LINE_REGEX.test(lines[i + 2])) {
+      // line with fund house name
+      currentFundHouse = line
+      fundHouses[currentFundHouse] = true
+    } else if (lines[i + 1] === ' ' && lines[i + 3] === ' ') {
+      // line with category data
+      currentRawCategory = line
+      rawCategories[currentRawCategory] = parseCategory(currentRawCategory)
+      // let categoryData = parseCategory(currentRawCategory)
+    }
+  }
+  return {
+    funds,
+    fundHouses: Object.keys(fundHouses),
+    types: Object.keys(types),
+    schemes: Object.keys(schemes),
+    categories: Object.keys(categories),
+    rawCategories: Object.keys(rawCategories),
+  }
+}
+async function getMasterData() {
+  // const FUNDS_LIST = []
+  // const fundsCsv = await fetch('data/funds.csv').then(res => res.text())
+  // fundsCsv.split('\n').forEach(f => {
+  //   if (f) {
+  //     const [category, code, name, fundHouse, rawCategory] = f.split(',')
+  //       .map(cell => {
+  //         if (cell.startsWith('"')) cell = cell.substr(1)
+  //         if (cell.endsWith('"')) cell = cell.substr(-1)
+  //         return cell
+  //       })
+  //     FUNDS_LIST.push({ category, code, name, fundHouse, rawCategory })
+  //   }
+  // })
+
+  // const fundCats = await fetch('data/fund-categories.csv').then(res => res.text())
+  // const FUND_CATEGORIES = fundCats.split('\n').filter(line => line) // remove empty lines
+  // return { FUNDS_LIST, FUND_CATEGORIES }
+
+  // const fundsList = await fetch('https://www.amfiindia.com/spages/NAVOpen.txt').then(res => res.text())
+  const fundsList = await fetch('data/NAVOpen.txt').then(res => res.text())
+  log(`Loaded funds data`)
+  let master = parseAMFIData(fundsList)
+  return {
+    master,
+    FUNDS_LIST: master.funds,
+    FUND_CATEGORIES: master.categories,
+  }
 }
 
 async function getFundNav(fund) {
@@ -306,8 +397,8 @@ async function getFundNav(fund) {
 async function getFundStats(fund) {
   log(`Calculating stats for ${fund.code} - ${fund.name}`)
 
-  let { code, name, fundClass, category, rawNav } = fund
-  console.log(code, name, fundClass, category)
+  let { code, name, scheme, category, rawNav } = fund
+  console.log(code, name, scheme, category)
 
   const navMap = {}
   rawNav.data.forEach(dat => {
@@ -336,7 +427,7 @@ async function computeFundsData(targetFunds) {
   return fundsWithStats
 }
 
-function populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect) {
+function populateFundFilters($fundCodeSelect, $fundCatSelect) {
   FUNDS_LIST.forEach(fund => {
     const option = document.createElement('option');
     option.value = fund.code;
@@ -373,13 +464,13 @@ function populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect) 
     $fundCatSelect.appendChild(option);
   })
 
-  // FUND_CLASSES.forEach(fundClass => {
-  //   let targetFunds = filterFunds(FUNDS_LIST, { fundClass, growth: true, direct: false })
+  // FUND_CLASSES.forEach(fundScheme => {
+  //   let targetFunds = filterFunds(FUNDS_LIST, { fundScheme, growth: true, direct: false })
   //   const fundCount = targetFunds.length
   //   const option = document.createElement('option');
-  //   option.value = fundClass;
-  //   option.text = `${fundClass} (${fundCount})`;
-  //   $fundClassSelect.appendChild(option);
+  //   option.value = fundScheme;
+  //   option.text = `${fundScheme} (${fundCount})`;
+  //   $fundSchemeSelect.appendChild(option);
   // })
 }
 
@@ -488,8 +579,7 @@ window.onload = async function () {
   FUNDS_LIST = masterData.FUNDS_LIST
   FUND_CATEGORIES = masterData.FUND_CATEGORIES
 
-  console.log(FUNDS_LIST)
-  console.log(FUND_CATEGORIES)
+  console.log({ FUNDS_LIST, FUND_CATEGORIES })
 
   // const urlParams = new URLSearchParams(window.location.search);
   // const category = urlParams.get('category');
@@ -513,14 +603,15 @@ window.onload = async function () {
         fundCodes: [],
         fundCategory: [],
         // fundClass: 'Equity Scheme',
-        fundClass: '',
+        // fundClass: '',
+        fundScheme: '',
         growth: true,
         dividend: false,
-        direct: false,
-        regular: true,
+        direct: true,
+        regular: false,
       },
       plot: {
-        all: true,
+        all: false,
         top: 5,
       },
     },
@@ -535,7 +626,7 @@ window.onload = async function () {
         console.log(this.filters.fundCodes)
         if (selectedFunds && selectedFunds.length > 0) {
           this.filters.fundCategory = []
-          this.filters.fundClass = ''
+          this.filters.fundScheme = ''
           this.growth = true
           this.direct = false
         }
@@ -544,7 +635,7 @@ window.onload = async function () {
         const filteredFunds = filterFunds(FUNDS_LIST, this.filters)
         console.log('filteredFunds:', filteredFunds)
 
-        // log(`Loading fund data for category='${fundCategory}' class='${fundClass}'`)
+        // log(`Loading fund data for category='${fundCategory}' class='${fundScheme}'`)
 
         this.funds = await computeFundsData(filteredFunds)
         // console.log(this.funds)
@@ -635,8 +726,7 @@ window.onload = async function () {
 
   const $fundCodeSelect = document.getElementById('fund-codes')
   const $fundCatSelect = document.getElementById('fund-category')
-  const $fundClassSelect = document.getElementById('fund-class')
-  populateFundFilters($fundCodeSelect, $fundCatSelect, $fundClassSelect)
+  populateFundFilters($fundCodeSelect, $fundCatSelect)
 }
 
 
