@@ -4,7 +4,7 @@ const fs = require('fs');
 // const fetch = require('node-fetch');
 // const { HttpsProxyAgent } = require('https-proxy-agent');
 
-const DATA_DIR = './data-v2'
+const DATA_DIR = './data'
 let loopCount = 0
 
 // const ROLLING_RETURNS_WINDOWS = [1,2,3,4,5,6,7,8,9,10,11,12]
