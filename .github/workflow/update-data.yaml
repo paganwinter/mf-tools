@@ -1,0 +1,46 @@
+on:
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - master
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        # with:
+        #   ref: master
+        #   fetch-depth: 0   # ensures full history for commits
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Node.js script
+        run: node scripts/update-data.js
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          # git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit changes
+        run: |
+          git add data-v2/funds-data.json
+          git add data-v2/funds.csv
+          git add data-v2/fund-stats.json
+          git add data-v2/fund-stats.csv
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: auto update data"
+            # git push origin HEAD:${{ github.ref_name }}
+            git push
+          fi

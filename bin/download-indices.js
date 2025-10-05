@@ -12,35 +12,11 @@ const path = require('path')
 const axios = require('axios')
 const moment = require('moment')
 
+const { INDICES } = require('../lib/data.js')
+
 
 const DATA_DIR = './data'
 
-const INDICES = [
-  'NIFTY 100',
-  'NIFTY LARGEMIDCAP 250',
-  'NIFTY MIDCAP 150',
-  'NIFTY SMALLCAP 50',
-  'NIFTY BANK',
-  'NIFTY INFRASTRUCTURE',
-  'NIFTY 50',
-  'NIFTY 200',
-  'NIFTY 500',
-  'NIFTY ADITYA BIRLA GROUP',
-  'NIFTY FMCG',
-  'NIFTY IT',
-  'NIFTY MEDIA',
-  'NIFTY MIDCAP 50',
-  'NIFTY MIDCAP 100',
-  'NIFTY MIDSMALLCAP 400',
-  'NIFTY NEXT 50',
-  'NIFTY PHARMA',
-  'NIFTY PRIVATE BANK',
-  'NIFTY SMALLCAP 100',
-  'NIFTY SMALLCAP 250',
-  'NIFTY500 SHARIAH',
-]
-
-// let INDICES = fs.readFileSync(path.join(DATA_DIR,  'indices.csv'), 'utf-8').split(/\r\n/g)
 console.log(INDICES)
 
 const startYear = 2006
