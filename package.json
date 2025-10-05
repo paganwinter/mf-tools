@@ -10,8 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^0.20.0",
-    "moment": "^2.29.0",
-    "vue": "^2.6.12"
+    "moment": "^2.29.0"
   }
 }
