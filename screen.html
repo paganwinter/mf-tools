@@ -11,7 +11,7 @@
 
 <style>
 body {
-  font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+  font-family: sans-serif, 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
 }
 table {
   border: 1px solid #ddd;
@@ -35,23 +35,60 @@ td, th {
 
 
 
+<a href="https://github.com/paganwinter/mf-tools">https://github.com/paganwinter/mf-tools</a><br />
+
 <div id="log-box"></div>
 
 <div id="app">
 <form>
-  <select id="fund-codes" v-model="filters.fundCodes" _v-on:change="loadFundData" multiple>
+  <select id="fund-codes" style="width: 100%;" v-model="filters.fundCodes" _v-on:change="loadFundData" multiple>
     <option value="">Select Funds</option>
   </select>
 
-  <select id="fund-category" style="width: 100%;" v-model="filters.fundCategory" _v-on:change="loadFundData" multiple>
+  <select id="fund-category" style="width: 100%;" size="10" v-model="filters.fundCategory" _v-on:change="loadFundData" multiple>
     <option value="">Select Fund Category</option>
   </select><br />
-  Growth:</label><input type="checkbox" id="fund-growth" v-model="filters.growth" /> Dividend:<input type="checkbox" id="fund-dividend" v-model="filters.dividend" /><br />
-  Regular: <input type="checkbox" id="fund-regular" v-model="filters.regular" /> Direct:</label><input type="checkbox" id="fund-direct" v-model="filters.direct" /><br />
-  Plot: All:<input type="checkbox" id="plot-all" v-model="plot.all" /> Top:<input type="number" id="plot-top" v-model="plot.top" /><br />
+
+  <input type="search" placeholder="search" style="width: 100%; padding: 8px;" v-model="filters.search" _v-on:keyup="searchFunds"/><br />
+
+  <label>
+    <input type="checkbox" id="fund-dividend" v-model="filters.skipDividend" /> Skip Dividend
+  </label>
+  <label>
+    <input type="checkbox" id="fund-dividend" v-model="filters.skipRegular" /> Skip Regular
+  </label>
+  <br />
+
+  <label>
+    <input type="checkbox" id="fund-growth" v-model="filters.growth" /> Growth
+  </label>
+  <label>
+    <input type="checkbox" id="fund-dividend" v-model="filters.dividend" /> Dividend
+  </label>
+  <br />
+
+  <label>
+    <input type="checkbox" id="fund-direct" v-model="filters.direct" /> Direct
+  </label>
+  <label>
+    <input type="checkbox" id="fund-regular" v-model="filters.regular" /> Regular
+  </label>
+  <br />
+
+  Graph:
+  <label>
+    <input type="checkbox" id="plot-all" v-model="plot.all" /> All
+  </label>
+  <label>
+    Top <input type="number" id="plot-top" v-model="plot.top" />
+  </label>
+  <br />
+
   <button v-on:click="loadFundData">Get Data</button>
   <button v-on:click="loadFavFunds">Favourites</button>
 </form>
+
+<div>Count: <strong>{{ fundsCount }}</strong></div>
 
 <div id="chart-main" style="height: 0; width: 100%; min-width: 720px"></div>
 
@@ -74,9 +111,9 @@ td, th {
 <script>
 let app
 let $logBox = document.getElementById('log-box')
-function log(thing) {
-  console.log(thing)
-  $logBox.innerHTML = thing
+function log(...items) {
+  console.log(...items)
+  $logBox.innerHTML = items
 }
 
 let FUNDS_LIST = []
@@ -94,55 +131,41 @@ async function sleep(ms) {
     }, ms)
   })
 }
-
-function filterFunds(allFunds, { fundCategory, growth, dividend, regular, direct, fundCodes, fundScheme }) {
-  let filteredFunds = allFunds
-
-  if (fundCodes && fundCodes.length > 0) {
-    filteredFunds = filteredFunds.filter(f => fundCodes.includes(f.code))
-    return filteredFunds
-  }
-
-  if (fundCategory) {
-    if (Array.isArray(fundCategory)) {
-      filteredFunds = filteredFunds.filter(f => fundCategory.includes(f.category))
-    } else {
-      filteredFunds = filteredFunds.filter(f => f.category === fundCategory)
-    }
-  }
-  // if (fundScheme) {
-  //   filteredFunds = filteredFunds.filter(f => f.scheme === fundScheme)
-  // }
-
-  if (growth && !dividend) {
-    filteredFunds = filteredFunds.filter(f => f.name.match(/growth/i))
-  }
-  if (!growth && dividend) {
-    filteredFunds = filteredFunds.filter(f => !f.name.match(/growth/i))
-  }
-
-  if (direct && !regular) {
-    filteredFunds = filteredFunds.filter(f => f.name.match(/direct/i))
-  }
-  if (!direct && regular) {
-    filteredFunds = filteredFunds.filter(f => !f.name.match(/direct/i))
-  }
-
-  // filteredFunds = filteredFunds
-  //   .filter(f => f.name.match(/growth/i))
-  //   .filter(f => !f.name.match(/direct/i))
-  //   // .filter(f => f.fundScheme.match(/(Equity|Other) Scheme/i))
-
-  if (filteredFunds.length === allFunds.length) {
-    return []
-  }
-  return filteredFunds
-}
-
-
 function fmtNum(num) {
   return +num.toFixed(2)
 }
+
+function colorGradient(fadeFraction, rgbColor1, rgbColor2, rgbColor3) {
+  var color1 = rgbColor1;
+  var color2 = rgbColor2;
+  var fade = fadeFraction;
+
+  // Do we have 3 colors for the gradient? Need to adjust the params.
+  if (rgbColor3) {
+    fade = fade * 2;
+
+    // Find which interval to use and adjust the fade percentage
+    if (fade >= 1) {
+      fade -= 1;
+      color1 = rgbColor2;
+      color2 = rgbColor3;
+    }
+  }
+
+  var diffRed = color2.red - color1.red;
+  var diffGreen = color2.green - color1.green;
+  var diffBlue = color2.blue - color1.blue;
+
+  var gradient = {
+    red: parseInt(Math.floor(color1.red + (diffRed * fade)), 10),
+    green: parseInt(Math.floor(color1.green + (diffGreen * fade)), 10),
+    blue: parseInt(Math.floor(color1.blue + (diffBlue * fade)), 10),
+  };
+
+  return 'rgb(' + gradient.red + ',' + gradient.green + ',' + gradient.blue + ')';
+}
+
+
 function calcCgr(start, end, years) {
   return ((Math.pow(end/start, 1/years) - 1) * 100)
 }
@@ -271,6 +294,75 @@ function calculateStats(navs, benchmark) {
   return stats
 }
 
+function filterFunds(allFunds, filters) {
+  const { fundCategory, growth, dividend, regular, direct, fundCodes, fundScheme, search } = filters;
+  let filteredFunds = allFunds
+
+  if (fundCodes && fundCodes.length > 0) {
+    filteredFunds = filteredFunds.filter(f => fundCodes.includes(f.code))
+    return filteredFunds
+  }
+
+  // if (fundCategory) {
+  //   if (Array.isArray(fundCategory)) {
+  //     filteredFunds = filteredFunds.filter(f => fundCategory.includes(f.category))
+  //   } else {
+  //     filteredFunds = filteredFunds.filter(f => f.category === fundCategory)
+  //   }
+  // }
+  if (fundCategory.length > 0) {
+    filteredFunds = filteredFunds.filter(f => fundCategory.includes(f.category))
+  }
+
+  // if (fundScheme) {
+  //   filteredFunds = filteredFunds.filter(f => f.scheme === fundScheme)
+  // }
+
+  if (search) {
+    const terms = search.toLowerCase().split(/\s+/)
+    filteredFunds = filteredFunds.filter(f => {
+      const haystack = (f.fundHouse + ' ' + f.name).toLowerCase()
+      return terms.every(term => haystack.includes(term))
+    })
+  }
+
+  if (filters.skipDividend) {
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/dividend/i))
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/idcw/i))
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/Income Distribution cum Capital Withdrawal/i))
+  }
+  if (filters.skipRegular) {
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/regular plan/i))
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/regular - /i))
+  }
+
+  if (growth && !dividend) {
+    filteredFunds = filteredFunds.filter(f => f.name.match(/growth/i))
+  }
+  if (!growth && dividend) {
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/growth/i))
+  }
+
+  if (direct && !regular) {
+    filteredFunds = filteredFunds.filter(f => f.name.match(/direct/i))
+  }
+  if (!direct && regular) {
+    filteredFunds = filteredFunds.filter(f => !f.name.match(/direct/i))
+  }
+
+  // filteredFunds = filteredFunds
+  //   .filter(f => f.name.match(/growth/i))
+  //   .filter(f => !f.name.match(/direct/i))
+  //   // .filter(f => f.fundScheme.match(/(Equity|Other) Scheme/i))
+
+  // console.log({filteredFunds})
+  // console.log(filteredFunds.length)
+
+  if (filteredFunds.length === allFunds.length) {
+    return []
+  }
+  return filteredFunds
+}
 
 function parseCategory(amfiCat) {
   let [, type, category] = amfiCat.match(/(.+?)\((.+)\)/)
@@ -375,7 +467,11 @@ async function getMasterData() {
   // const fundsList = await fetch('https://www.amfiindia.com/spages/NAVOpen.txt').then(res => res.text())
   const fundsList = await fetch('data/NAVOpen.txt').then(res => res.text())
   log(`Loaded funds data`)
+  // console.log('fundsList:', fundsList)
   let master = parseAMFIData(fundsList)
+  console.log('parsed:')
+  console.log(master)
+
   return {
     master,
     FUNDS_LIST: master.funds,
@@ -415,12 +511,17 @@ async function getFundStats(fund) {
 
 async function computeFundsData(targetFunds) {
   const fundsWithStats = await Promise.all(targetFunds.map(async (fund) => {
-    if (!FUNDS_CACHE[fund.code]) {
-      fund.rawNav = await getFundNav(fund)
-      const fundStats = await getFundStats(fund)
-      FUNDS_CACHE[fund.code] = { ...fund, ...fundStats }
-    }
-    return FUNDS_CACHE[fund.code]
+    // TODO: stop storing in cache to reduce memory usage
+    fund.rawNav = await getFundNav(fund)
+    const fundStats = await getFundStats(fund)
+    return { ...fund, ...fundStats }
+
+    // if (!FUNDS_CACHE[fund.code]) {
+    //   fund.rawNav = await getFundNav(fund)
+    //   const fundStats = await getFundStats(fund)
+    //   FUNDS_CACHE[fund.code] = { ...fund, ...fundStats }
+    // }
+    // return FUNDS_CACHE[fund.code]
   }))
 
   console.log('fundsWithStats:', fundsWithStats)
@@ -447,7 +548,7 @@ function populateFundFilters($fundCodeSelect, $fundCatSelect) {
         return data;
       }
 
-      const terms = params.term.toLowerCase().split(' ')
+      const terms = params.term.toLowerCase().split(/\s+/)
       if (terms.every(term => data.text.toLowerCase().includes(term))) {
         return data;
       }
@@ -456,7 +557,8 @@ function populateFundFilters($fundCodeSelect, $fundCatSelect) {
   });
 
   FUND_CATEGORIES.forEach(category => {
-    let targetFunds = filterFunds(FUNDS_LIST, { fundCategory: category, growth: true, dividend: false, regular: true, direct: false })
+    // let targetFunds = filterFunds(FUNDS_LIST, { fundCategory: category, growth: true, dividend: false, regular: false, direct: true })
+    let targetFunds = filterFunds(FUNDS_LIST, { fundCategory: category })
     const fundCount = targetFunds.length
     const option = document.createElement('option');
     option.value = category;
@@ -593,26 +695,30 @@ window.onload = async function () {
       f.fav = true
     }
   })
-  console.log(FUNDS_LIST)
+  console.log('FUNDS_LIST:', FUNDS_LIST)
 
   app = new Vue({
     el: '#app',
     data: {
       funds: {},
+      fundsCount: 0,
       filters: {
         fundCodes: [],
         fundCategory: [],
         // fundClass: 'Equity Scheme',
         // fundClass: '',
         fundScheme: '',
-        growth: true,
+        skipDividend: true,
+        skipRegular: true,
+
+        growth: false,
         dividend: false,
-        direct: true,
+        direct: false,
         regular: false,
       },
       plot: {
         all: false,
-        top: 5,
+        top: 10,
       },
     },
     methods: {
@@ -627,13 +733,16 @@ window.onload = async function () {
         if (selectedFunds && selectedFunds.length > 0) {
           this.filters.fundCategory = []
           this.filters.fundScheme = ''
-          this.growth = true
-          this.direct = false
+          this.filters.growth = true
+          this.filters.direct = false
         }
 
         console.log('filters:', this.filters)
         const filteredFunds = filterFunds(FUNDS_LIST, this.filters)
+        console.table(filteredFunds)
         console.log('filteredFunds:', filteredFunds)
+
+        this.fundsCount = filteredFunds.length
 
         // log(`Loading fund data for category='${fundCategory}' class='${fundScheme}'`)
 
@@ -730,35 +839,6 @@ window.onload = async function () {
 }
 
 
-function colorGradient(fadeFraction, rgbColor1, rgbColor2, rgbColor3) {
-  var color1 = rgbColor1;
-  var color2 = rgbColor2;
-  var fade = fadeFraction;
-
-  // Do we have 3 colors for the gradient? Need to adjust the params.
-  if (rgbColor3) {
-    fade = fade * 2;
-
-    // Find which interval to use and adjust the fade percentage
-    if (fade >= 1) {
-      fade -= 1;
-      color1 = rgbColor2;
-      color2 = rgbColor3;
-    }
-  }
-
-  var diffRed = color2.red - color1.red;
-  var diffGreen = color2.green - color1.green;
-  var diffBlue = color2.blue - color1.blue;
-
-  var gradient = {
-    red: parseInt(Math.floor(color1.red + (diffRed * fade)), 10),
-    green: parseInt(Math.floor(color1.green + (diffGreen * fade)), 10),
-    blue: parseInt(Math.floor(color1.blue + (diffBlue * fade)), 10),
-  };
-
-  return 'rgb(' + gradient.red + ',' + gradient.green + ',' + gradient.blue + ')';
-}
 
 async function test() {
   const fund = {
