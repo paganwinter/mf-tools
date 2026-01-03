@@ -9,7 +9,7 @@ https://paganwinter.github.io/mf-tools/screen.html
 - Allows adding funds to watchlist.
 
 
-> If funds list is outdated, update https://paganwinter.github.io/mf-tools/data/NAVOpen.txt with https://www.amfiindia.com/spages/NAVOpen.txt
+> If funds list is outdated, update [data/NAVOpen.txt](data/NAVOpen.txt) with https://www.amfiindia.com/spages/NAVOpen.txt
 
 
 old version: https://paganwinter.github.io/mf-tools/index.html
