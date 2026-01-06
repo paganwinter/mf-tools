@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.14.0/babel.min.js"></script> -->
+  <!-- <script type="text/babel" data-presets="env,react,es2017, stage-3" data-plugins="syntax-async-functions,transform-class-properties"></script> -->
+  <script src="https://unpkg.com/@babel/standalone@7.19.3/babel.js"></script>
+  <script type="text/babel" data-plugins="transform-modules-umd" data-presets="react" data-type="module"></script>
+
+<style>
+body {
+  font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+table {
+  border: 1px solid #ccc;
+  border-collapse: collapse;
+}
+td, th {
+  border: 1px solid #ccc;
+}
+th {
+  background: #eee;
+}
+</style>
+</head>
+
+<body>
+<div id="app"></div>
+<!-- <script type="text/babel" src="App.jsx"></script> -->
+<script type="text/babel" data-plugins="transform-modules-umd" data-presets="react" data-type="module">
+// Source - https://stackoverflow.com/a/46584926
+// Retrieved 2026-01-03, License - CC BY-SA 3.0
+
+const ROLLING_RETURNS_WINDOWS = [1,2,3,5,8,10]
+
+function parseCategory(amfiCat) {
+  let [, type, category] = amfiCat.match(/(.+?)\((.+)\)/)
+  // let [scheme, category] = schemeCategory.split(' - ')
+  // if (!category) category = scheme
+  let [scheme] = category.split(' - ')
+  return { type, scheme, category }
+}
+function parseAMFIData(data) {
+  data = data.replace(/\r?\n/g, '\n')
+  let lines = data.split(/\n/)
+
+  const funds = []
+  let fundHouses = {}
+  let rawCategories = {}
+  let types = {}
+  let schemes = {}
+  let categories = {}
+
+  const FUND_LINE_REGEX = /^\d+;/
+
+  // below are set as and when those lines are encountered
+  // and used by subsequent funds
+  let currentFundHouse
+  let currentRawCategory
+  for (let i = 1; i < lines.length; i++) {
+    let line = lines[i]
+
+    // ignore empty lines
+    if (line.match(/^\s+$/)) continue
+
+    if (FUND_LINE_REGEX.test(line)) {
+      // line with fund data
+      let [code, isinDivPayGrowth, isiniDivReinvest, name, aum, date] = line.split(';')
+
+      // fundHouse and rawCategory would have been set while parsing earlier lines
+      const fundHouse = currentFundHouse
+      const { type, scheme, category } = rawCategories[currentRawCategory]
+
+      types[type] = true
+      schemes[scheme] = true
+      categories[category] = true
+
+      // TODO
+      // growth vs dividend
+      // regular vs direct
+      // let growth = !!name.match(/growth/i)
+
+      let fund = {
+        code,
+        name,
+        fundHouse,
+        rawCategory: currentRawCategory,
+        type,
+        scheme,
+        category,
+        aum,
+        date,
+        isinDivPayGrowth,
+        isiniDivReinvest
+      }
+      funds.push(fund)
+    } else if (lines[i + 1] === ' ' && FUND_LINE_REGEX.test(lines[i + 2])) {
+      // line with fund house name
+      currentFundHouse = line
+      fundHouses[currentFundHouse] = true
+    } else if (lines[i + 1] === ' ' && lines[i + 3] === ' ') {
+      // line with category data
+      currentRawCategory = line
+      rawCategories[currentRawCategory] = parseCategory(currentRawCategory)
+      // let categoryData = parseCategory(currentRawCategory)
+    }
+  }
+  return {
+    funds,
+    fundHouses: Object.keys(fundHouses),
+    types: Object.keys(types),
+    schemes: Object.keys(schemes),
+    categories: Object.keys(categories),
+    rawCategories: Object.keys(rawCategories),
+  }
+}
+
+function ControlsPanel({ onSearch}) {
+  return (
+    <div>
+      <form>
+        <input type="search" placeholder="Search funds..." onKeyUp={e => {
+          const query = e.target.value.toLowerCase();
+          onSearch(query);
+        }} />
+      </form>
+    </div>
+  );
+}
+function FundsDashboard(props) {
+  return (
+    <div>
+      <h2>Funds Dashboard</h2>
+      <ul>
+        {props.funds.map(fund => (
+          <li key={fund.code}>{fund.name}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
+
+async function getFundNAV(fund) {
+  // console.log(`Getting NAV for ${fund.code} - ${fund.name}`)
+  try {
+    const nav = await fetch(`https://api.mfapi.in/mf/${fund.code}`).then(res => res.json())
+    console.log(`Got NAV for ${fund.code} - ${fund.name}`)
+    return nav
+  } catch (error) {
+    console.error(`Failed to get NAV for - ${fund.code} - ${fund.name}`)
+    return {}
+  }
+}
+function calculateCagr(startNAV, endNAV, years) {
+  return (Math.pow(endNAV / startNAV, 1 / years) - 1) * 100;
+}
+function calculateRollingReturns(opts) {
+  // const days = (navs[navs.length - 1].date - navs[0].date) / (1000 * 60 * 60 * 24);
+  // const years = days / 365;
+  // const navsPerYear = navs.length / years;
+  // console.log('days:', days, 'navs:', navs.length, years, navsPerYear.toFixed(2), 'navs/year');
+  // // console.log(navs[0].date, 'to', navs[navs.length - 1].date, ' count:', navs.length)
+
+  const { navs, windowYears } = opts;
+  const startDate = opts.startDate ? new Date(opts.startDate) : navs[0].date
+  const navList = navs.slice(navs.findIndex(n => n.date >= startDate))
+
+  // // assume 52 * 7 days in a year so that (date minus 364 days) is guaranteed to be the same day of the week
+  // // this helps avoid sitations where previous date is a weekend when there is no NAV data
+  // const daysInWindow = windowYears * 52 * 7
+  // const latestNAVDate = navList[navList.length - 1].date
+  // const cagrs = []
+  // for (let i = 0, len = navList.length; i < len; i++) {
+  //   const buyNAV = navList[i].nav;
+  //   const buyDate = navList[i].date;
+  //   let sellDate = new Date(buyDate);
+  //   sellDate.setDate(buyDate.getDate() + daysInWindow)
+  //   // if sellDate is greater than latest nav date, exit the loop
+  //   if (sellDate > latestNAVDate) break
+
+  //   const sellItem = navList.find(i => i.date >= sellDate)
+  //   if (sellItem) {
+  //     const sellNAV = sellItem.nav
+  //     let cagr = calculateCagr(buyNAV, sellNAV, windowYears)
+  //     cagrs.push({ buyDate, buyNAV, sellDate, sellNAV, cagr })
+  //     // // cagrs.push({ buyDate: buyDateStr, sellDate: sellDateStr, cagr })
+  //     // // cagrs.push([windowYears, buyDateStr, sellDateStr, cagr])
+  //     // cagrs.push([buyDateStr, sellDateStr, cagr])
+  //   }
+  // }
+
+  // assume 250 NAV days in a year (actual is 240-241)
+  const daysInWindow = windowYears * 250
+  const cagrs = []
+  const startIndex = navs.findIndex(n => n.date >= startDate)
+  if (startIndex < 0) return cagrs
+
+  const endIndex = navs.length - daysInWindow
+
+  try {
+    for (let i = startIndex; i <= endIndex; i++) {
+      const buyNAV = navs[i].nav;
+      const buyDate = navs[i].date;
+
+      const sellItem = navs[i + daysInWindow]
+      if (sellItem) {
+        const sellNAV = sellItem.nav
+        const sellDate = sellItem.date
+        let cagr = calculateCagr(buyNAV, sellNAV, windowYears)
+        // cagrs.push({ buyDate, buyNAV, sellDate, sellNAV, cagr })
+        cagrs.push([buyDate, buyNAV, sellDate, sellNAV, cagr])
+      }
+    }
+  } catch (error) {
+    console.log(opts.fund)
+    console.log(startIndex)
+    throw error
+  }
+
+  return cagrs;
+}
+
+function calculateAverage(values) {
+  if (values.length === 0) return undefined
+  return values.reduce((acc, item) => (acc + item), 0) / values.length
+}
+function fmtNum(n, dec = 2) {
+  if (typeof n === 'undefined') return undefined
+  return +n.toFixed(dec)
+}
+
+async function getData(funds, setFundStats) {
+  console.log(funds)
+  await Promise.all(funds.map(async (fund) => {
+    const navsData = await getFundNAV(fund)
+    let navs = (navsData && navsData.data) ?? []
+    navs = navs.reverse().map(({ date, nav }) => ({ date: date.split('-').reverse().join('-'), nav: +nav }));
+    console.log('NAVs', navs);
+
+    const fundStats = {}
+    fundStats.navCount = navs.length;
+    fundStats.oldestNAVDate = navs[0].date;
+    fundStats.currentNAV = navs[navs.length - 1].nav;
+
+    let rollingReturns = {};
+    ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
+      const cagrs = calculateRollingReturns({ fund, navs, windowYears, startDate: null })
+      rollingReturns[`${windowYears}`] = {
+        values: cagrs,
+        avg: fmtNum(calculateAverage(cagrs.map((i) => i[4]))),
+      }
+    });
+    fundStats.rollingReturns = rollingReturns
+    console.log({...fund, ...fundStats})
+    setFundStats((prev) => {
+      return { ...prev, [fund.code]: fundStats }
+    })
+  }))
+}
+
+
+function App() {
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  const [message, setMessage] = React.useState('');
+
+  const [searchText, setSearchText] = React.useState('');
+  const [searchCategories, setSearchCategories] = React.useState([]);
+
+  // const [rawFunds, setRawFunds] = React.useState(null);
+  const [funds, setFunds] = React.useState([]);
+  const [categories, setCategories] = React.useState([]);
+  const [fundStats, setFundStats] = React.useState({});
+
+  React.useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        setMessage('Loading funds data...');
+        const res = await fetch('data/NAVOpen.txt');
+        if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+        const rawData = await res.text();
+        // setRawFunds(rawData);
+        let master = parseAMFIData(rawData);
+        console.log(master);
+        // console.table(master.funds);
+
+        let usefulFunds = master.funds
+        usefulFunds = usefulFunds.filter(fund => {
+          return !fund.name.match(/idcw/i)
+            && !fund.name.match(/dividend/i)
+            && !fund.name.match(/Income Distribution cum Capital Withdrawal/i)
+            && !fund.name.match(/regular plan/i)
+            && !fund.name.match(/regular - /i)
+            && fund.name.match(/direct/i)
+        })
+        setFunds(usefulFunds);
+        const categories = master.categories.sort((a, b) => {
+          const importantCategoryA = a.startsWith('Equity') || a.startsWith('Other')
+          const importantCategoryB = b.startsWith('Equity') || b.startsWith('Other')
+          if (importantCategoryA === importantCategoryB) return a.localeCompare(b);
+          if (importantCategoryA) return -1;
+          if (importantCategoryB) return 1;
+        })
+        setCategories(categories);
+        setMessage('Funds data loaded successfully.');
+      } catch (err) {
+        if (err.name !== 'AbortError') setError(err.message || 'Fetch error');
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const filteredFunds = React.useMemo(() => {
+    setMessage('Filtering funds...');
+    const filtered = funds.filter(fund => {
+      if (searchText) {
+        // const searchTokens = searchText.split(' ').filter(t => t.trim());
+        // if (searchTokens.every(token => fund.name.toLowerCase().includes(token))) return false
+        const searchRegex = new RegExp(searchText, 'i')
+        const searchTarget = fund.category.toLowerCase() + ' ' + fund.name.toLowerCase();
+        if (!searchTarget.match(searchRegex)) return false
+      }
+      if (searchCategories.length > 0) {
+        if (!searchCategories.includes(fund.category)) return false
+      }
+      return true
+    });
+    setMessage('');
+    return filtered;
+  }, [funds, fundStats, searchCategories, searchText]);
+  console.log('filteredFunds', filteredFunds)
+
+  // setMessage('Filtering funds...');
+  // const filteredFunds = funds.filter(fund => {
+  //   if (searchText) {
+  //     const searchTokens = searchText.split(' ').filter(t => t.trim());
+  //     if (searchTokens.every(token => fund.name.toLowerCase().includes(token) )) return false
+  //   }
+  //   if (searchCategories.length > 0) {
+  //     if (!searchCategories.includes(fund.category)) return false
+  //   }
+  //   return true
+  // });
+  // setMessage('');
+  // console.log({filteredFunds})
+  // console.log('>>>', filteredFunds.map(fund => fund.category));
+  // const filteredCategories = Array.from(new Set(filteredFunds.map(fund => fund.category)));
+  // console.log({filteredCategories})
+
+  return (
+    <div>
+      <div>
+        <form>
+          <input type="search" placeholder="Search funds..." onKeyUp={e => {
+            const searchText = e.target.value.toLowerCase();
+            console.log('searchText:', searchText);
+            setSearchText(searchText);
+          }} onChange={e => {
+            if (e.target.value === '') {
+              setSearchText(searchText);
+            }
+          }} />
+          <br />
+          <select multiple size="10" onChange={e => {
+            const selectedCategories = Array.from(e.target.selectedOptions, option => option.value).filter(v => v);
+            console.log('selectedCategories:', selectedCategories);
+            setSearchCategories(selectedCategories);
+          }}>
+            <option value="">All</option>
+            {categories.map(category => (
+              <option key={category} value={category}>{category} ({funds.filter(fund => fund.category === category).length})</option>
+            ))}
+          </select>
+          <br />
+          {/*
+          <label htmlFor="directOnly">
+            Direct Plans Only: <input type="checkbox" id="directOnly" name="directOnly" value="directOnly" checked />
+          </label><br />
+          <label htmlFor="growthOnly">
+            Growth Plans Only: <input type="checkbox" id="growthOnly" name="growthOnly" value="growthOnly" checked onChange={e => {
+              const growthOnly = e.target.checked;
+              console.log('growthOnly:', growthOnly);
+            }} />
+          </label><br />
+          */}
+        </form>
+      </div>
+      <button onClick={e => { getData(filteredFunds, setFundStats) }}>Get Data</button>
+      <div>{message}</div>
+      <div>
+        <div>Count: {filteredFunds.length}</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Fund</th>
+              <th>NAVs</th>
+              <th>Oldest</th>
+              {ROLLING_RETURNS_WINDOWS.map(years => (<th key={years}>{years} RR</th>))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredFunds.map(fund => (
+              <tr key={fund.code}>
+                <td style={{fontSize: 10}}>{fund.category}</td>
+                <td>{fund.code} {fund.name}</td>
+                <td><a href={`https://api.mfapi.in/mf/${fund.code}`} target="_blank">{fundStats[fund.code]?.navCount}</a></td>
+                <td>{fundStats[fund.code]?.oldestNAVDate}</td>
+                {ROLLING_RETURNS_WINDOWS.map(years => (<td key={years}>{fundStats[fund.code]?.rollingReturns[years]?.avg}</td>))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+// ReactDOM.render(<App/>, document.getElementById('app'));
+ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+
+</script>
+</body>
+</html>
