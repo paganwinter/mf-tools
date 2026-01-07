@@ -36,7 +36,7 @@ th {
 
 const ROLLING_RETURNS_WINDOWS = [1,2,3,4,5,6,7,8,9,10]
 // const ROLLING_RETURNS_WINDOWS = [1,2,3,5,8,10]
-const TRADING_DAYS_IN_YEAR = 246
+const TRADING_DAYS_IN_YEAR = 247
 
 function parseCategory(amfiCat) {
   let [, type, category] = amfiCat.match(/(.+?)\((.+)\)/)
@@ -256,6 +256,7 @@ function calcStdev(values) {
   const sumOfSquareDiffs = squareDiffs.reduce((sum, value) => {
     return sum + value;
   }, 0);
+  // const variance = sumOfSquareDiffs / n;
   const variance = sumOfSquareDiffs / (n - 1);
   const stdev = Math.sqrt(variance);
   // return stdev * Math.sqrt(TRADING_DAYS_IN_YEAR); // annualized
@@ -276,7 +277,7 @@ function App() {
 
   const [searchText, setSearchText] = React.useState('');
   const [searchCategories, setSearchCategories] = React.useState([]);
-  const [startDate, setStartDate] = React.useState('2015-01-01');
+  const [startDate, setStartDate] = React.useState('2000-01-01');
 
   // const [rawFunds, setRawFunds] = React.useState(null);
   const [funds, setFunds] = React.useState([]);
@@ -341,13 +342,19 @@ function App() {
       curFundStats.oldestNAVDate = new Date(navs[0].date);
       curFundStats.currentNAV = navs[navs.length - 1].nav;
 
-      const navValues = navsFromStartDate.map(n => n.nav)
-      // console.log('navValues', navValues)
-      const returnsForStdev = navValues.slice(1).map((currNAV, i) => {
-        const prevNAV = navValues[i]
-        return (currNAV - prevNAV) / prevNAV * 100
+      // const navValues = navsFromStartDate.map(n => n.nav)
+      // const returnsForStdev = navValues.slice(1).map((currNAV, i) => {
+      //   const prevNAV = navValues[i]
+      //   return (currNAV - prevNAV) / prevNAV * 100
+      // })
+      const returnsForStdev = navsFromStartDate.slice(1).map((item, i) => {
+        // console.log(i)
+        // const currNAV = navsFromStartDate[i].nav
+        // const prevNAV = navsFromStartDate[i - 1].nav
+        // return (currNAV - prevNAV) / prevNAV * 100
+        return (item.nav - navsFromStartDate[i].nav) / navsFromStartDate[i].nav * 100
       })
-      // console.log('returnsForStdev', returnsForStdev)
+      console.log('returnsForStdev', returnsForStdev)
       const stdev = calcStdev(returnsForStdev);
       curFundStats.stdev = stdev * Math.sqrt(TRADING_DAYS_IN_YEAR);
 
@@ -362,7 +369,7 @@ function App() {
           median: fmtNum(calcMedian(cagrsValue)),
           min: Math.min(...cagrsValue),
           max: Math.max(...cagrsValue),
-          stdev: fmtNum(calcStdev(cagrsValue)),
+          // stdev: fmtNum(calcStdev(cagrsValue)),
         }
       });
       curFundStats.rollingReturns = rollingReturns
@@ -427,7 +434,7 @@ function App() {
         // const searchTokens = searchText.split(' ').filter(t => t.trim());
         // if (searchTokens.every(token => fund.name.toLowerCase().includes(token))) return false
         const searchRegex = new RegExp(searchText, 'i')
-        const searchTarget = fund.category.toLowerCase() + ' ' + fund.name.toLowerCase();
+        const searchTarget = `${fund.code} ${fund.category.toLowerCase()} ${fund.name.toLowerCase()}`;
         if (!searchTarget.match(searchRegex)) return false
       }
       if (searchCategories.length > 0) {
@@ -563,7 +570,6 @@ function App() {
 }
 // ReactDOM.render(<App/>, document.getElementById('app'));
 ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
-
 </script>
 </body>
 </html>
