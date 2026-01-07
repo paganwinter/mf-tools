@@ -34,7 +34,9 @@ th {
 // Source - https://stackoverflow.com/a/46584926
 // Retrieved 2026-01-03, License - CC BY-SA 3.0
 
-const ROLLING_RETURNS_WINDOWS = [1,2,3,5,8,10]
+const ROLLING_RETURNS_WINDOWS = [1,2,3,4,5,6,7,8,9,10]
+// const ROLLING_RETURNS_WINDOWS = [1,2,3,5,8,10]
+const TRADING_DAYS_IN_YEAR = 246
 
 function parseCategory(amfiCat) {
   let [, type, category] = amfiCat.match(/(.+?)\((.+)\)/)
@@ -68,7 +70,7 @@ function parseAMFIData(data) {
 
     if (FUND_LINE_REGEX.test(line)) {
       // line with fund data
-      let [code, isinDivPayGrowth, isiniDivReinvest, name, aum, date] = line.split(';')
+      let [code, isinDivPayGrowth, isiniDivReinvest, name, nav, date] = line.split(';')
 
       // fundHouse and rawCategory would have been set while parsing earlier lines
       const fundHouse = currentFundHouse
@@ -91,7 +93,7 @@ function parseAMFIData(data) {
         type,
         scheme,
         category,
-        aum,
+        nav,
         date,
         isinDivPayGrowth,
         isiniDivReinvest
@@ -118,48 +120,53 @@ function parseAMFIData(data) {
   }
 }
 
-function ControlsPanel({ onSearch}) {
-  return (
-    <div>
-      <form>
-        <input type="search" placeholder="Search funds..." onKeyUp={e => {
-          const query = e.target.value.toLowerCase();
-          onSearch(query);
-        }} />
-      </form>
-    </div>
-  );
-}
-function FundsDashboard(props) {
-  return (
-    <div>
-      <h2>Funds Dashboard</h2>
-      <ul>
-        {props.funds.map(fund => (
-          <li key={fund.code}>{fund.name}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-
-
 async function getFundNAV(fund) {
   // console.log(`Getting NAV for ${fund.code} - ${fund.name}`)
   try {
-    const nav = await fetch(`https://api.mfapi.in/mf/${fund.code}`).then(res => res.json())
-    console.log(`Got NAV for ${fund.code} - ${fund.name}`)
-    return nav
+    const navRaw = await fetch(`https://api.mfapi.in/mf/${fund.code}`).then(res => res.json())
+    console.log(`Got NAV for ${fund.code} - ${fund.name}`, navRaw)
+    const navs = navRaw.data.reverse().map(({ date, nav }) => ({ date: new Date(date.split('-').reverse().join('-')), nav: +nav }));
+    return navs
   } catch (error) {
     console.error(`Failed to get NAV for - ${fund.code} - ${fund.name}`)
-    return {}
+    return []
   }
 }
-function calculateCagr(startNAV, endNAV, years) {
+
+function colorGradient(fadeFraction, rgbColor1, rgbColor2, rgbColor3) {
+  var color1 = rgbColor1;
+  var color2 = rgbColor2;
+  var fade = fadeFraction;
+
+  // Do we have 3 colors for the gradient? Need to adjust the params.
+  if (rgbColor3) {
+    fade = fade * 2;
+
+    // Find which interval to use and adjust the fade percentage
+    if (fade >= 1) {
+      fade -= 1;
+      color1 = rgbColor2;
+      color2 = rgbColor3;
+    }
+  }
+
+  var diffRed = color2.red - color1.red;
+  var diffGreen = color2.green - color1.green;
+  var diffBlue = color2.blue - color1.blue;
+
+  var gradient = {
+    red: parseInt(Math.floor(color1.red + (diffRed * fade)), 10),
+    green: parseInt(Math.floor(color1.green + (diffGreen * fade)), 10),
+    blue: parseInt(Math.floor(color1.blue + (diffBlue * fade)), 10),
+  };
+
+  return 'rgb(' + gradient.red + ',' + gradient.green + ',' + gradient.blue + ')';
+}
+
+function calcCAGR(startNAV, endNAV, years) {
   return (Math.pow(endNAV / startNAV, 1 / years) - 1) * 100;
 }
-function calculateRollingReturns(opts) {
+function calcRollingReturns(opts) {
   // const days = (navs[navs.length - 1].date - navs[0].date) / (1000 * 60 * 60 * 24);
   // const years = days / 365;
   // const navsPerYear = navs.length / years;
@@ -167,8 +174,8 @@ function calculateRollingReturns(opts) {
   // // console.log(navs[0].date, 'to', navs[navs.length - 1].date, ' count:', navs.length)
 
   const { navs, windowYears } = opts;
-  const startDate = opts.startDate ? new Date(opts.startDate) : navs[0].date
-  const navList = navs.slice(navs.findIndex(n => n.date >= startDate))
+  // const startDate = opts.startDate ? new Date(opts.startDate) : navs[0].date
+  // const navList = navs.slice(navs.findIndex(n => n.date >= startDate))
 
   // // assume 52 * 7 days in a year so that (date minus 364 days) is guaranteed to be the same day of the week
   // // this helps avoid sitations where previous date is a weekend when there is no NAV data
@@ -186,7 +193,7 @@ function calculateRollingReturns(opts) {
   //   const sellItem = navList.find(i => i.date >= sellDate)
   //   if (sellItem) {
   //     const sellNAV = sellItem.nav
-  //     let cagr = calculateCagr(buyNAV, sellNAV, windowYears)
+  //     let cagr = calcCAGR(buyNAV, sellNAV, windowYears)
   //     cagrs.push({ buyDate, buyNAV, sellDate, sellNAV, cagr })
   //     // // cagrs.push({ buyDate: buyDateStr, sellDate: sellDateStr, cagr })
   //     // // cagrs.push([windowYears, buyDateStr, sellDateStr, cagr])
@@ -194,11 +201,13 @@ function calculateRollingReturns(opts) {
   //   }
   // }
 
-  // assume 250 NAV days in a year (actual is 240-241)
-  const daysInWindow = windowYears * 250
+  // assume approx TRADING_DAYS_IN_YEAR NAV days in a year
+  // eg. search for each year to get count of NAVs for that year in https://api.mfapi.in/mf/119620
+  const daysInWindow = windowYears * TRADING_DAYS_IN_YEAR
   const cagrs = []
-  const startIndex = navs.findIndex(n => n.date >= startDate)
-  if (startIndex < 0) return cagrs
+  // const startIndex = navs.findIndex(n => n.date >= startDate)
+  // if (startIndex < 0) return cagrs
+  const startIndex = 0
 
   const endIndex = navs.length - daysInWindow
 
@@ -206,14 +215,16 @@ function calculateRollingReturns(opts) {
     for (let i = startIndex; i <= endIndex; i++) {
       const buyNAV = navs[i].nav;
       const buyDate = navs[i].date;
+      if (!buyNAV) continue;
 
       const sellItem = navs[i + daysInWindow]
       if (sellItem) {
         const sellNAV = sellItem.nav
         const sellDate = sellItem.date
-        let cagr = calculateCagr(buyNAV, sellNAV, windowYears)
-        // cagrs.push({ buyDate, buyNAV, sellDate, sellNAV, cagr })
-        cagrs.push([buyDate, buyNAV, sellDate, sellNAV, cagr])
+        let cagr = calcCAGR(buyNAV, sellNAV, windowYears)
+        // if (cagr === Infinity) { console.log(navs[i], {cagr, buyNAV, sellNAV, windowYears}) }
+        // cagrs.push([buyDate, buyNAV, sellDate, sellNAV, cagr])
+        cagrs.push({ buyDate, buyNAV, sellDate, sellNAV, cagr })
       }
     }
   } catch (error) {
@@ -224,44 +235,38 @@ function calculateRollingReturns(opts) {
 
   return cagrs;
 }
-
-function calculateAverage(values) {
+function calcAvg(values) {
   if (values.length === 0) return undefined
   return values.reduce((acc, item) => (acc + item), 0) / values.length
 }
+function calcMedian(values) {
+  if (values.length === 0) return undefined
+  return values.sort((a, b) => a - b)[Math.floor(values.length / 2)]
+}
+function calcStdev(values) {
+  const n = values.length
+  if (n === 0) return undefined
+  if (n < 2) return 0
+
+  const mean = calcAvg(values);
+  const squareDiffs = values.map(value => {
+    const diff = value - mean;
+    return diff * diff;
+  }, 0);
+  const sumOfSquareDiffs = squareDiffs.reduce((sum, value) => {
+    return sum + value;
+  }, 0);
+  const variance = sumOfSquareDiffs / (n - 1);
+  const stdev = Math.sqrt(variance);
+  // return stdev * Math.sqrt(TRADING_DAYS_IN_YEAR); // annualized
+  return stdev;
+}
+
 function fmtNum(n, dec = 2) {
   if (typeof n === 'undefined') return undefined
   return +n.toFixed(dec)
 }
 
-async function getData(funds, setFundStats) {
-  console.log(funds)
-  await Promise.all(funds.map(async (fund) => {
-    const navsData = await getFundNAV(fund)
-    let navs = (navsData && navsData.data) ?? []
-    navs = navs.reverse().map(({ date, nav }) => ({ date: date.split('-').reverse().join('-'), nav: +nav }));
-    console.log('NAVs', navs);
-
-    const fundStats = {}
-    fundStats.navCount = navs.length;
-    fundStats.oldestNAVDate = navs[0].date;
-    fundStats.currentNAV = navs[navs.length - 1].nav;
-
-    let rollingReturns = {};
-    ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
-      const cagrs = calculateRollingReturns({ fund, navs, windowYears, startDate: null })
-      rollingReturns[`${windowYears}`] = {
-        values: cagrs,
-        avg: fmtNum(calculateAverage(cagrs.map((i) => i[4]))),
-      }
-    });
-    fundStats.rollingReturns = rollingReturns
-    console.log({...fund, ...fundStats})
-    setFundStats((prev) => {
-      return { ...prev, [fund.code]: fundStats }
-    })
-  }))
-}
 
 
 function App() {
@@ -271,11 +276,12 @@ function App() {
 
   const [searchText, setSearchText] = React.useState('');
   const [searchCategories, setSearchCategories] = React.useState([]);
+  const [startDate, setStartDate] = React.useState('2015-01-01');
 
   // const [rawFunds, setRawFunds] = React.useState(null);
   const [funds, setFunds] = React.useState([]);
   const [categories, setCategories] = React.useState([]);
-  const [fundStats, setFundStats] = React.useState({});
+  // const [fundStats, setFundStats] = React.useState({});
 
   React.useEffect(() => {
     async function load() {
@@ -295,9 +301,9 @@ function App() {
           return !fund.name.match(/idcw/i)
             && !fund.name.match(/dividend/i)
             && !fund.name.match(/Income Distribution cum Capital Withdrawal/i)
-            && !fund.name.match(/regular plan/i)
-            && !fund.name.match(/regular - /i)
             && fund.name.match(/direct/i)
+            // && !fund.name.match(/regular plan/i)
+            // && !fund.name.match(/regular - /i)
         })
         setFunds(usefulFunds);
         const categories = master.categories.sort((a, b) => {
@@ -318,8 +324,104 @@ function App() {
     load();
   }, []);
 
+
+  async function getData(funds) {
+    const statsCache = {}
+
+    await Promise.all(funds.map(async (fund) => {
+      setMessage(`Getting NAVs for ${fund.name}...`);
+      let navs = await getFundNAV(fund);
+      const navsFromStartDate = navs.slice(navs.findIndex(n => n.date >= new Date(startDate))).filter(i => i.nav);
+      console.log('navs', {navs, navsFromStartDate});
+
+      setMessage(`Calculating stats for ${fund.name}...`);
+      const curFundStats = {}
+      // curFundStats.navCount = navs.length;
+      curFundStats.navCount = navsFromStartDate.length;
+      curFundStats.oldestNAVDate = new Date(navs[0].date);
+      curFundStats.currentNAV = navs[navs.length - 1].nav;
+
+      const navValues = navsFromStartDate.map(n => n.nav)
+      // console.log('navValues', navValues)
+      const returnsForStdev = navValues.slice(1).map((currNAV, i) => {
+        const prevNAV = navValues[i]
+        return (currNAV - prevNAV) / prevNAV * 100
+      })
+      // console.log('returnsForStdev', returnsForStdev)
+      const stdev = calcStdev(returnsForStdev);
+      curFundStats.stdev = stdev * Math.sqrt(TRADING_DAYS_IN_YEAR);
+
+      let rollingReturns = {};
+      ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
+        const cagrs = calcRollingReturns({ fund, navs: navsFromStartDate, windowYears, startDate })
+        const cagrsValue = cagrs.map(i => i.cagr)
+        rollingReturns[`${windowYears}`] = {
+          values: cagrs,
+          count: cagrs.length,
+          avg: fmtNum(calcAvg(cagrsValue)),
+          median: fmtNum(calcMedian(cagrsValue)),
+          min: Math.min(...cagrsValue),
+          max: Math.max(...cagrsValue),
+          stdev: fmtNum(calcStdev(cagrsValue)),
+        }
+      });
+      curFundStats.rollingReturns = rollingReturns
+
+
+      statsCache[fund.code] = { ...fund, stats: curFundStats }
+
+      setFunds((prevFunds) => {
+        const updatedFunds = prevFunds.map((f) => {
+          if (f.code === fund.code) return { ...f, stats: curFundStats }
+          return f
+        })
+        return updatedFunds
+      })
+    }))
+    setMessage('Done');
+
+    // get relative rank for RR windows
+    console.log('statsCache:', statsCache)
+    const COLOR_LOW = { red: 256, green: 256, blue: 256 }
+    const COLOR_HIGH = { red: 92, green: 184, blue: 91 }
+    ROLLING_RETURNS_WINDOWS.forEach(years => {
+      const avgRRs = Object.values(statsCache).map(f => f.stats.rollingReturns[years]?.avg).filter(v => typeof v !== 'undefined') // .sort((a, b) => b - a)
+      const minRR = Math.min(...avgRRs)
+      const maxRR = Math.max(...avgRRs)
+
+      funds.forEach(fund => {
+        if (!statsCache[fund.code].stats.rollingReturns[years]) return
+
+        let perc = (statsCache[fund.code].stats.rollingReturns[years].avg - minRR) / (maxRR - minRR)
+        // let perc = statsCache[fund.code].stats.rollingReturns[years].avg / maxRR
+        perc = isNaN(perc) ? 0 : perc
+        const color = colorGradient(perc, COLOR_LOW, COLOR_HIGH)
+
+        setFunds((prevFunds) => {
+          const updatedFunds = prevFunds.map((f) => {
+            if (f.code === fund.code) {
+              const stats = { ...f.stats };
+              stats.rollingReturns[years].color = color
+              return { ...f, stats }
+            }
+            return f
+          })
+          return updatedFunds
+        })
+
+      })
+
+      // avgRR.sort((a, b) => b.avgRR - a.avgRR)
+      // avgRR.forEach((item, index) => {
+      //   if (!statsCache[item.code].stats.rollingReturns[years]) return
+      //   statsCache[item.code].stats.rollingReturns[years].rank = index + 1
+      // })
+    })
+  }
+
+
   const filteredFunds = React.useMemo(() => {
-    setMessage('Filtering funds...');
+    // setMessage('Filtering funds...');
     const filtered = funds.filter(fund => {
       if (searchText) {
         // const searchTokens = searchText.split(' ').filter(t => t.trim());
@@ -333,10 +435,10 @@ function App() {
       }
       return true
     });
-    setMessage('');
+    // setMessage('');
+    console.log('filtered:', filtered)
     return filtered;
-  }, [funds, fundStats, searchCategories, searchText]);
-  console.log('filteredFunds', filteredFunds)
+  }, [funds, searchCategories, searchText]);
 
   // setMessage('Filtering funds...');
   // const filteredFunds = funds.filter(fund => {
@@ -359,16 +461,6 @@ function App() {
     <div>
       <div>
         <form>
-          <input type="search" placeholder="Search funds..." onKeyUp={e => {
-            const searchText = e.target.value.toLowerCase();
-            console.log('searchText:', searchText);
-            setSearchText(searchText);
-          }} onChange={e => {
-            if (e.target.value === '') {
-              setSearchText(searchText);
-            }
-          }} />
-          <br />
           <select multiple size="10" onChange={e => {
             const selectedCategories = Array.from(e.target.selectedOptions, option => option.value).filter(v => v);
             console.log('selectedCategories:', selectedCategories);
@@ -379,6 +471,12 @@ function App() {
               <option key={category} value={category}>{category} ({funds.filter(fund => fund.category === category).length})</option>
             ))}
           </select>
+          <br />
+          <input type="search" placeholder="Search funds..." onKeyUp={e => {
+            const searchText = e.target.value.toLowerCase();
+            console.log('searchText:', searchText);
+            setSearchText(searchText);
+          }} onChange={e => { if (e.target.value === '') { setSearchText(searchText); } }} />
           <br />
           {/*
           <label htmlFor="directOnly">
@@ -391,30 +489,70 @@ function App() {
             }} />
           </label><br />
           */}
+        <label>
+          Stats since: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+        </label>
+        <button onClick={(e) => { e.preventDefault(); getData(filteredFunds) }}>Get Data</button>
         </form>
       </div>
-      <button onClick={e => { getData(filteredFunds, setFundStats) }}>Get Data</button>
       <div>{message}</div>
       <div>
         <div>Count: {filteredFunds.length}</div>
         <table>
           <thead>
             <tr>
-              <th>Category</th>
+              {/* <th>Category</th> */}
               <th>Fund</th>
               <th>NAVs</th>
-              <th>Oldest</th>
-              {ROLLING_RETURNS_WINDOWS.map(years => (<th key={years}>{years} RR</th>))}
+              <th style={{cursor: 'pointer'}} onClick={() => {
+                  setFunds((prevFunds) => {
+                    const sortedFunds = [...prevFunds].sort((a, b) => {
+                      const aStdev = a.stats?.stdev || 0
+                      const bStdev = b.stats?.stdev || 0
+                      return aStdev - bStdev
+                    })
+                    return sortedFunds
+                  })
+                }}>StDev</th>
+              {ROLLING_RETURNS_WINDOWS.map(years => (
+                <th key={years} style={{cursor: 'pointer'}} onClick={() => {
+                    setFunds((prevFunds) => {
+                      const sortedFunds = [...prevFunds].sort((a, b) => {
+                        const aRR = a.stats?.rollingReturns[years]?.avg || 0
+                        const bRR = b.stats?.rollingReturns[years]?.avg || 0
+                        return bRR - aRR
+                      })
+                      return sortedFunds
+                    })
+                  }}>
+                  {years} RR
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {filteredFunds.map(fund => (
               <tr key={fund.code}>
-                <td style={{fontSize: 10}}>{fund.category}</td>
-                <td>{fund.code} {fund.name}</td>
-                <td><a href={`https://api.mfapi.in/mf/${fund.code}`} target="_blank">{fundStats[fund.code]?.navCount}</a></td>
-                <td>{fundStats[fund.code]?.oldestNAVDate}</td>
-                {ROLLING_RETURNS_WINDOWS.map(years => (<td key={years}>{fundStats[fund.code]?.rollingReturns[years]?.avg}</td>))}
+                {/* <td style={{fontSize: 10}}>{fund.category}</td> */}
+                <td>
+                  <div>{fund.name}</div>
+                  <div style={{fontSize: 12, color: '#aaa'}}>{fund.category} | code:{fund.code} | since:{fund.stats?.oldestNAVDate.toISOString().split('T')[0]}</div>
+                </td>
+                <td>
+                  <a href={`https://api.mfapi.in/mf/${fund.code}`} target="_blank">{fund.stats?.navCount}</a>
+                </td>
+                <td>
+                  {fmtNum(fund.stats?.stdev)}
+                </td>
+                {ROLLING_RETURNS_WINDOWS.map(years => (
+                  <td key={years} style={{backgroundColor: fund.stats?.rollingReturns[years]?.color}}>
+                    {fund.stats?.rollingReturns[years]?.avg}
+                    <div style={{fontSize: 10, color: '#888'}}>
+                      {fund.stats?.rollingReturns[years]?.count} {fund.stats?.rollingReturns[years]?.median} {fund.stats?.rollingReturns[years]?.stdev}
+                      {/*fmtNum(fund.stats?.rollingReturns[years]?.min)*/}
+                      {/*fmtNum(fund.stats?.rollingReturns[years]?.max)*/}
+                    </div>
+                  </td>))}
               </tr>
             ))}
           </tbody>
