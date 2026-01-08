@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <title>Mutual Funds Screener</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
@@ -10,9 +11,13 @@
   <script src="https://unpkg.com/@babel/standalone@7.19.3/babel.js"></script>
   <script type="text/babel" data-plugins="transform-modules-umd" data-presets="react" data-type="module"></script>
 
+  <!-- <script src="https://code.highcharts.com/highcharts.js"> </script> -->
+   <script src="https://code.highcharts.com/stock/highstock.js"></script>
 <style>
 body {
   font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  margin: 0;
+  padding: 0;
 }
 table {
   border: 1px solid #ccc;
@@ -29,6 +34,7 @@ th {
 
 <body>
 <div id="app"></div>
+
 <!-- <script type="text/babel" src="App.jsx"></script> -->
 <script type="text/babel" data-plugins="transform-modules-umd" data-presets="react" data-type="module">
 // Source - https://stackoverflow.com/a/46584926
@@ -125,7 +131,7 @@ async function getFundNAV(fund) {
   try {
     const navRaw = await fetch(`https://api.mfapi.in/mf/${fund.code}`).then(res => res.json())
     console.log(`Got NAV for ${fund.code} - ${fund.name}`, navRaw)
-    const navs = navRaw.data.reverse().map(({ date, nav }) => ({ date: new Date(date.split('-').reverse().join('-')), nav: +nav }));
+    const navs = navRaw.data.reverse().filter(({nav}) => +nav).map(({ date, nav }) => ({ date: new Date(date.split('-').reverse().join('-')), nav: +nav }));
     return navs
   } catch (error) {
     console.error(`Failed to get NAV for - ${fund.code} - ${fund.name}`)
@@ -167,16 +173,10 @@ function calcCAGR(startNAV, endNAV, years) {
   return (Math.pow(endNAV / startNAV, 1 / years) - 1) * 100;
 }
 function calcRollingReturns(opts) {
-  // const days = (navs[navs.length - 1].date - navs[0].date) / (1000 * 60 * 60 * 24);
-  // const years = days / 365;
-  // const navsPerYear = navs.length / years;
-  // console.log('days:', days, 'navs:', navs.length, years, navsPerYear.toFixed(2), 'navs/year');
-  // // console.log(navs[0].date, 'to', navs[navs.length - 1].date, ' count:', navs.length)
-
   const { navs, windowYears } = opts;
+
   // const startDate = opts.startDate ? new Date(opts.startDate) : navs[0].date
   // const navList = navs.slice(navs.findIndex(n => n.date >= startDate))
-
   // // assume 52 * 7 days in a year so that (date minus 364 days) is guaranteed to be the same day of the week
   // // this helps avoid sitations where previous date is a weekend when there is no NAV data
   // const daysInWindow = windowYears * 52 * 7
@@ -189,7 +189,6 @@ function calcRollingReturns(opts) {
   //   sellDate.setDate(buyDate.getDate() + daysInWindow)
   //   // if sellDate is greater than latest nav date, exit the loop
   //   if (sellDate > latestNAVDate) break
-
   //   const sellItem = navList.find(i => i.date >= sellDate)
   //   if (sellItem) {
   //     const sellNAV = sellItem.nav
@@ -208,14 +207,13 @@ function calcRollingReturns(opts) {
   // const startIndex = navs.findIndex(n => n.date >= startDate)
   // if (startIndex < 0) return cagrs
   const startIndex = 0
-
   const endIndex = navs.length - daysInWindow
 
   try {
     for (let i = startIndex; i <= endIndex; i++) {
       const buyNAV = navs[i].nav;
       const buyDate = navs[i].date;
-      if (!buyNAV) continue;
+      // if (!buyNAV) continue; // 0 filtered out fetching NAVs
 
       const sellItem = navs[i + daysInWindow]
       if (sellItem) {
@@ -263,9 +261,127 @@ function calcStdev(values) {
   return stdev;
 }
 
+function getMonthEndNavs(navs) {
+  const navMap = {};
+  for (const item of navs) {
+    const monthKey = item.date.toISOString().slice(0, 7); // YYYY-MM
+    if (!navMap[monthKey] || item.date > navMap[monthKey].date) {
+      navMap[monthKey] = item;
+    }
+  }
+  // Sort by date ascending (optional but useful)
+  return Object.values(navMap).sort((a, b) => a.date - b.date);
+}
+
 function fmtNum(n, dec = 2) {
   if (typeof n === 'undefined') return undefined
   return +n.toFixed(dec)
+}
+
+
+
+
+function drawChart({ funds, years, percThreshold }) {
+  const seriesData = funds.map(fund => {
+    // const rr = statsCache[fund.code]?.stats.rollingReturns[years]
+    const rr = fund.stats.rollingReturns[years]
+    const values = rr?.values ?? []
+    return {
+      name: fund.name,
+      data: values.map(v => [v.sellDate.getTime(), +v.cagr.toFixed(2)]),
+      visible: rr.avg >= percThreshold,
+    }
+  })
+  console.log(seriesData)
+
+  const options = {
+    title: {
+      text: years ? `Rolling Returns over ${years} ${(years === 1) ? 'year' : 'years'}` : 'NAV',
+    },
+    // subtitle: {
+    //   text: '',
+    // },
+
+    chart: {
+      // borderWidth: 1,
+      // height: 800,
+      zooming: {
+        mouseWheel: {
+          enabled: false,
+        },
+      },
+    },
+
+    legend: {
+      enabled:  true,
+      layout: 'horizontal', // 'vertical',
+      align: 'left',
+      // alignColumns: false,
+      itemHiddenStyle: { color: '#ccc' },
+      maxHeight: 250,
+    },
+
+    rangeSelector: {
+      // selected: 4,
+      buttons: [
+        {type: 'month', count: 1, text: '1m'},
+        {type: 'month', count: 3, text: '3m'},
+        {type: 'month', count: 6, text: '6m'},
+        {type: 'ytd', text: 'YTD'},
+        {type: 'year', count: 1, text: '1y'},
+        {type: 'year', count: 3, text: '3y'},
+        {type: 'year', count: 5, text: '5y'},
+        {type: 'all', text: 'All'},
+      ],
+    },
+
+    xAxis: {
+      // type: 'datetime',
+    },
+    yAxis: {
+      softMin: 0,
+      // // labels: {
+      // //   format: '{#if (gt value 0)}+{/if}{value}%'
+      // // },
+      // plotLines: [{
+      //   value: 0,
+      //   width: 2,
+      //   color: 'silver'
+      // }]
+    },
+
+    plotOptions: {
+      series: {
+        // compare: 'percent',
+        showInNavigator: true
+      },
+      // marker: {
+      //   enabled: true,
+      //   radius: 2,
+      // },
+      line: {
+        lineWidth: 2,
+      },
+      states: {
+        hover: {
+          lineWidthPlus: 2,
+        },
+      },
+    },
+
+    tooltip: {
+      // pointFormat: '<span style="color:{series.color}"> {series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+      pointFormat: '<span style="color:{series.color}"> {series.name}</span>: <b>{point.y}</b><br/>',
+      split: false,
+      // shared: true,
+      shape: 'rect', // 'callout'
+      distance: 50,
+      followTouchMove: false,
+    },
+
+    series: seriesData,
+  }
+  Highcharts.stockChart('chart-container', options);
 }
 
 
@@ -277,7 +393,11 @@ function App() {
 
   const [searchText, setSearchText] = React.useState('');
   const [searchCategories, setSearchCategories] = React.useState([]);
+  const [favFundsOnly, setFavFundsOnly] = React.useState(false);
+
   const [startDate, setStartDate] = React.useState('2000-01-01');
+  const [percThreshold, setPercThreshold] = React.useState(15);
+  const [rrWindow, setRRWindow] = React.useState(5);
 
   // const [rawFunds, setRawFunds] = React.useState(null);
   const [funds, setFunds] = React.useState([]);
@@ -306,7 +426,13 @@ function App() {
             // && !fund.name.match(/regular plan/i)
             // && !fund.name.match(/regular - /i)
         })
+
+        const favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}');
+        usefulFunds = usefulFunds.map(fund => {
+          return { ...fund, fav: !!favFunds[fund.code] }
+        })
         setFunds(usefulFunds);
+
         const categories = master.categories.sort((a, b) => {
           const importantCategoryA = a.startsWith('Equity') || a.startsWith('Other')
           const importantCategoryB = b.startsWith('Equity') || b.startsWith('Other')
@@ -326,37 +452,39 @@ function App() {
   }, []);
 
 
+
   async function getData(funds) {
     const statsCache = {}
 
     await Promise.all(funds.map(async (fund) => {
       setMessage(`Getting NAVs for ${fund.name}...`);
-      let navs = await getFundNAV(fund);
+      let navs = fund.stats?.navs ?? await getFundNAV(fund);
+
       const navsFromStartDate = navs.slice(navs.findIndex(n => n.date >= new Date(startDate))).filter(i => i.nav);
       console.log('navs', {navs, navsFromStartDate});
 
       setMessage(`Calculating stats for ${fund.name}...`);
-      const curFundStats = {}
+      const curFundStats = {
+        navs,
+        navCount: navsFromStartDate.length,
+        oldestNAVDate: new Date(navs[0].date),
+        currentNAV: navs[navs.length - 1].nav,
+      }
       // curFundStats.navCount = navs.length;
-      curFundStats.navCount = navsFromStartDate.length;
-      curFundStats.oldestNAVDate = new Date(navs[0].date);
-      curFundStats.currentNAV = navs[navs.length - 1].nav;
 
-      // const navValues = navsFromStartDate.map(n => n.nav)
-      // const returnsForStdev = navValues.slice(1).map((currNAV, i) => {
-      //   const prevNAV = navValues[i]
-      //   return (currNAV - prevNAV) / prevNAV * 100
-      // })
-      const returnsForStdev = navsFromStartDate.slice(1).map((item, i) => {
-        // console.log(i)
-        // const currNAV = navsFromStartDate[i].nav
-        // const prevNAV = navsFromStartDate[i - 1].nav
-        // return (currNAV - prevNAV) / prevNAV * 100
-        return (item.nav - navsFromStartDate[i].nav) / navsFromStartDate[i].nav * 100
-      })
-      console.log('returnsForStdev', returnsForStdev)
-      const stdev = calcStdev(returnsForStdev);
-      curFundStats.stdev = stdev * Math.sqrt(TRADING_DAYS_IN_YEAR);
+
+      // Standard Deviation
+      // Trailing 3 years monthly return Std Dev
+      // const trailing3YearMonthlyNAVs = getMonthEndNavs(navs).slice(-37); // last 36 months
+      const trailing3YearMonthlyNAVs = getMonthEndNavs(navs).slice(-38, -1); // this matches Value Research Online values
+      const monthlyReturns = [];
+      for (let i = 1; i < trailing3YearMonthlyNAVs.length; i++) {
+        const currentNav = trailing3YearMonthlyNAVs[i].nav;
+        const previousNav = trailing3YearMonthlyNAVs[i - 1].nav;
+        monthlyReturns.push((currentNav - previousNav) / previousNav * 100);
+      }
+      curFundStats.stdev = calcStdev(monthlyReturns) * Math.sqrt(12);
+
 
       let rollingReturns = {};
       ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
@@ -374,9 +502,10 @@ function App() {
       });
       curFundStats.rollingReturns = rollingReturns
 
-
       statsCache[fund.code] = { ...fund, stats: curFundStats }
+      console.log(fund, curFundStats);
 
+      // update view
       setFunds((prevFunds) => {
         const updatedFunds = prevFunds.map((f) => {
           if (f.code === fund.code) return { ...f, stats: curFundStats }
@@ -387,7 +516,14 @@ function App() {
     }))
     setMessage('Done');
 
-    // get relative rank for RR windows
+
+    // const chartData = funds.filter(f => statsCache[f.code]?.stats.rollingReturns[5].avg > 20).map(fund => {
+    const chartFunds = funds.map(f => ({ ...f, stats: statsCache[f.code]?.stats }))
+    drawChart({ funds: chartFunds, years: rrWindow, percThreshold });
+
+
+
+    // calculate relative stats
     console.log('statsCache:', statsCache)
     const COLOR_LOW = { red: 256, green: 256, blue: 256 }
     const COLOR_HIGH = { red: 92, green: 184, blue: 91 }
@@ -399,8 +535,8 @@ function App() {
       funds.forEach(fund => {
         if (!statsCache[fund.code].stats.rollingReturns[years]) return
 
-        let perc = (statsCache[fund.code].stats.rollingReturns[years].avg - minRR) / (maxRR - minRR)
         // let perc = statsCache[fund.code].stats.rollingReturns[years].avg / maxRR
+        let perc = (statsCache[fund.code].stats.rollingReturns[years].avg - minRR) / (maxRR - minRR)
         perc = isNaN(perc) ? 0 : perc
         const color = colorGradient(perc, COLOR_LOW, COLOR_HIGH)
 
@@ -429,7 +565,9 @@ function App() {
 
   const filteredFunds = React.useMemo(() => {
     // setMessage('Filtering funds...');
-    const filtered = funds.filter(fund => {
+    let filtered = funds.filter(fund => {
+      if (favFundsOnly && !fund.fav) return false
+
       if (searchText) {
         // const searchTokens = searchText.split(' ').filter(t => t.trim());
         // if (searchTokens.every(token => fund.name.toLowerCase().includes(token))) return false
@@ -437,6 +575,7 @@ function App() {
         const searchTarget = `${fund.code} ${fund.category.toLowerCase()} ${fund.name.toLowerCase()}`;
         if (!searchTarget.match(searchRegex)) return false
       }
+
       if (searchCategories.length > 0) {
         if (!searchCategories.includes(fund.category)) return false
       }
@@ -444,8 +583,18 @@ function App() {
     });
     // setMessage('');
     console.log('filtered:', filtered)
+
+    // sort
+    if (rrWindow) {
+      filtered = filtered.sort((a, b) => {
+        const aRR = a.stats?.rollingReturns[rrWindow]?.avg || 0
+        const bRR = b.stats?.rollingReturns[rrWindow]?.avg || 0
+        return bRR - aRR
+      })
+    }
+
     return filtered;
-  }, [funds, searchCategories, searchText]);
+  }, [funds, searchCategories, searchText, favFundsOnly, rrWindow]);
 
   // setMessage('Filtering funds...');
   // const filteredFunds = funds.filter(fund => {
@@ -468,7 +617,7 @@ function App() {
     <div>
       <div>
         <form>
-          <select multiple size="10" onChange={e => {
+          <select multiple size="8" style={{width: '100%'}} onChange={e => {
             const selectedCategories = Array.from(e.target.selectedOptions, option => option.value).filter(v => v);
             console.log('selectedCategories:', selectedCategories);
             setSearchCategories(selectedCategories);
@@ -479,12 +628,20 @@ function App() {
             ))}
           </select>
           <br />
-          <input type="search" placeholder="Search funds..." onKeyUp={e => {
+          <input type="search" style={{width: '100%'}} placeholder="Search funds..." onKeyUp={e => {
             const searchText = e.target.value.toLowerCase();
             console.log('searchText:', searchText);
             setSearchText(searchText);
           }} onChange={e => { if (e.target.value === '') { setSearchText(searchText); } }} />
           <br />
+          <label>
+            Favourites Only:
+            <input type="checkbox" onChange={(e) => {
+              setFavFundsOnly(e.target.checked);
+            }} />
+          </label>
+          <br />
+          <hr />
           {/*
           <label htmlFor="directOnly">
             Direct Plans Only: <input type="checkbox" id="directOnly" name="directOnly" value="directOnly" checked />
@@ -499,12 +656,42 @@ function App() {
         <label>
           Stats since: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         </label>
-        <button onClick={(e) => { e.preventDefault(); getData(filteredFunds) }}>Get Data</button>
+        <br />
+        RR Window: <select style={{}} onChange={e => {
+          const years = e.target.value ? parseInt(e.target.value) : null;
+          setRRWindow(years);
+          drawChart({ funds: filteredFunds, years, percThreshold });
+        }}>
+          <option value="">-</option>
+          {ROLLING_RETURNS_WINDOWS.map(years => (
+            <option key={years} value={years}>{years} years</option>
+          ))}
+        </select>
+        <br />
+        <label>
+          Percentage threshold: <input type="number" value={percThreshold} onChange={(e) => {
+            // drawChart({ funds: filteredFunds, years: rrWindow, percThreshold: e.target.value });
+            setPercThreshold(e.target.value)
+          }} />
+        </label>
+        <br />
+
+        <button onClick={(e) => { e.preventDefault(); getData(filteredFunds) }}>Refresh Data</button>
+        <br />
+        <hr />
+
         </form>
       </div>
+
       <div>{message}</div>
+      <details>
+        <summary>Graph</summary>
+        <div id="chart-container" style={{height: 800}}></div>
+      </details>
+
       <div>
         <div>Count: {filteredFunds.length}</div>
+
         <table>
           <thead>
             <tr>
@@ -523,26 +710,45 @@ function App() {
                 }}>StDev</th>
               {ROLLING_RETURNS_WINDOWS.map(years => (
                 <th key={years} style={{cursor: 'pointer'}} onClick={() => {
-                    setFunds((prevFunds) => {
-                      const sortedFunds = [...prevFunds].sort((a, b) => {
-                        const aRR = a.stats?.rollingReturns[years]?.avg || 0
-                        const bRR = b.stats?.rollingReturns[years]?.avg || 0
-                        return bRR - aRR
-                      })
-                      return sortedFunds
-                    })
+                    setRRWindow(years);
+                    drawChart({ funds: filteredFunds, years, percThreshold });
+                    // setFunds((prevFunds) => {
+                    //   const sortedFunds = [...prevFunds].sort((a, b) => {
+                    //     const aRR = a.stats?.rollingReturns[years]?.avg || 0
+                    //     const bRR = b.stats?.rollingReturns[years]?.avg || 0
+                    //     return bRR - aRR
+                    //   })
+
+                    //   console.log({filteredFunds})
+                    //   drawChart({ funds: filteredFunds, years, percThreshold });
+
+                    //   return sortedFunds
+                    // })
                   }}>
                   {years} RR
                 </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
             {filteredFunds.map(fund => (
               <tr key={fund.code}>
                 {/* <td style={{fontSize: 10}}>{fund.category}</td> */}
                 <td>
-                  <div>{fund.name}</div>
+                  <div>
+                    <input type="checkbox" checked={!!fund.fav} onChange={(e) => {
+                      const favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}');
+                      localStorage.setItem('favFunds', JSON.stringify({...favFunds, [fund.code]: e.target.checked}));
+
+                      setFunds((prevFunds) => {
+                        const updatedFunds = prevFunds.map((f) => {
+                          if (f.code === fund.code) return { ...f, fav: e.target.checked }
+                          return f
+                        })
+                        return updatedFunds
+                      })
+                    }}/>{fund.name}</div>
                   <div style={{fontSize: 12, color: '#aaa'}}>{fund.category} | code:{fund.code} | since:{fund.stats?.oldestNAVDate.toISOString().split('T')[0]}</div>
                 </td>
                 <td>
@@ -570,6 +776,9 @@ function App() {
 }
 // ReactDOM.render(<App/>, document.getElementById('app'));
 ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+
+
+
 </script>
 </body>
 </html>

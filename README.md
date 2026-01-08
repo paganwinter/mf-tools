@@ -25,3 +25,10 @@ node bin/download-navs.js
 ```bash
 node index.js
 ``` -->
+
+<!--
+TODO:
+- stdev of rolling returns and min-max band
+- percentiles of rolling returns
+- fequency distribution of rolling returns
+-->
