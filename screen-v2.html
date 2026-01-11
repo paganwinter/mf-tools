@@ -29,6 +29,9 @@ td, th {
 th {
   background: #eee;
 }
+details summary {
+  cursor: pointer;
+}
 </style>
 </head>
 
@@ -43,6 +46,9 @@ th {
 const ROLLING_RETURNS_WINDOWS = [1,2,3,4,5,6,7,8,9,10]
 // const ROLLING_RETURNS_WINDOWS = [1,2,3,5,8,10]
 const TRADING_DAYS_IN_YEAR = 247
+const COLOR_LOW = { red: 256, green: 256, blue: 256 }
+const COLOR_HIGH = { red: 92, green: 184, blue: 91 }
+
 
 function parseCategory(amfiCat) {
   let [, type, category] = amfiCat.match(/(.+?)\((.+)\)/)
@@ -233,6 +239,20 @@ function calcRollingReturns(opts) {
 
   return cagrs;
 }
+function getReturnsDistribution(list) {
+  const counts = {};
+  list.forEach(num => {
+    const key = Math.floor(num);
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const percentages = {};
+  const totalCount = list.length;
+  for (const key in counts) {
+    percentages[key] = +((counts[key] / totalCount) * 100).toFixed(2);
+  }
+  return Object.entries(percentages).map(([ret, count]) => ([+ret, count])).sort((a, b) => a[0] - b[0]);
+}
+
 function calcAvg(values) {
   if (values.length === 0) return undefined
   return values.reduce((acc, item) => (acc + item), 0) / values.length
@@ -241,6 +261,21 @@ function calcMedian(values) {
   if (values.length === 0) return undefined
   return values.sort((a, b) => a - b)[Math.floor(values.length / 2)]
 }
+function calcQuantile(sortedArr, q) {
+  // 1. Sort the array in ascending order
+  // const sortedArr = arr.sort((a, b) => a - b);
+  const pos = (sortedArr.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base; // the fractional part
+
+  // 2. Linearly interpolate between the two nearest data points if needed
+  if (sortedArr[base + 1] !== undefined) {
+    return sortedArr[base] + rest * (sortedArr[base + 1] - sortedArr[base]);
+  } else {
+    return sortedArr[base];
+  }
+};
+
 function calcStdev(values) {
   const n = values.length
   if (n === 0) return undefined
@@ -281,18 +316,21 @@ function fmtNum(n, dec = 2) {
 
 
 
-function drawChart({ funds, years, percThreshold }) {
-  const seriesData = funds.map(fund => {
-    // const rr = statsCache[fund.code]?.stats.rollingReturns[years]
+function drawChart({ funds, years, rankThreshold }) {
+  console.log({funds})
+
+  const seriesData = funds.map((fund, i) => {
     const rr = fund.stats.rollingReturns[years]
+    // const rr = statsCache[fund.code]?.stats.rollingReturns[years]
     const values = rr?.values ?? []
     return {
       name: fund.name,
       data: values.map(v => [v.sellDate.getTime(), +v.cagr.toFixed(2)]),
-      visible: rr.avg >= percThreshold,
+      // visible: rr.avg >= rankThreshold,
+      visible: i < rankThreshold,
     }
   })
-  console.log(seriesData)
+  console.log('seriesData', seriesData)
 
   const options = {
     title: {
@@ -318,7 +356,7 @@ function drawChart({ funds, years, percThreshold }) {
       align: 'left',
       // alignColumns: false,
       itemHiddenStyle: { color: '#ccc' },
-      maxHeight: 250,
+      maxHeight: 300,
     },
 
     rangeSelector: {
@@ -381,7 +419,48 @@ function drawChart({ funds, years, percThreshold }) {
 
     series: seriesData,
   }
-  Highcharts.stockChart('chart-container', options);
+  Highcharts.stockChart('chart-rr-over-time', options);
+
+
+  // Rolling Returns Distribution chart
+  const distributionData = funds.map((fund, i) => {
+      return {
+        name: fund.name,
+        data: fund.stats.rollingReturns?.[years]?.distribution?.map(([ret, count]) => ([`${ret}`, count])) ?? [],
+        // visible: fund.stats.rollingReturns?.[years]?.avg >= rankThreshold,
+        visible: i <= rankThreshold,
+      }
+    })
+
+  const minReturn = Math.min(...funds.filter(f => f.stats.rollingReturns[years].distribution.length > 0).map(f => f.stats.rollingReturns[years].distribution[0][0]))
+  // const max = +dataSeries[0].distribution[dataSeries[0].distribution.length - 1][0]
+  const maxReturn = Math.max(...funds.filter(f => f.stats.rollingReturns[years].distribution.length > 0).map(f => f.stats.rollingReturns[years].distribution[f.stats.rollingReturns[years].distribution.length - 1][0]))
+  const returnsRange = Array.from({ length: maxReturn - minReturn + 1}, (_, i) => minReturn + i)
+  console.log({minReturn, maxReturn, returnsRange})
+  const distributionOptions = {
+    chart: {
+      type: 'spline'
+    },
+    plotOptions: {
+      // column: {},
+      spline: {
+        marker: {
+          enabled: false,
+        },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      categories: returnsRange.map(i => `${i}`),
+      title: { text: 'Returns %' },
+    },
+    yAxis: {
+      title: { text: 'Frequency %' },
+    },
+    series: distributionData,
+  }
+  console.log({distributionOptions})
+  Highcharts.chart('chart-rr-distribution', distributionOptions);
 }
 
 
@@ -396,10 +475,12 @@ function App() {
   const [favFundsOnly, setFavFundsOnly] = React.useState(false);
 
   const [startDate, setStartDate] = React.useState('2000-01-01');
-  const [percThreshold, setPercThreshold] = React.useState(15);
+  const [rankThreshold, setRankThreshold] = React.useState(5);
   const [rrWindow, setRRWindow] = React.useState(5);
+  const [showAllRRStats, setShowAllRRStats] = React.useState(true);
 
-  // const [rawFunds, setRawFunds] = React.useState(null);
+
+// const [rawFunds, setRawFunds] = React.useState(null);
   const [funds, setFunds] = React.useState([]);
   const [categories, setCategories] = React.useState([]);
   // const [fundStats, setFundStats] = React.useState({});
@@ -456,14 +537,15 @@ function App() {
   async function getData(funds) {
     const statsCache = {}
 
-    await Promise.all(funds.map(async (fund) => {
+    let count = 1
+    await Promise.all(funds.map(async (fund, i) => {
       setMessage(`Getting NAVs for ${fund.name}...`);
       let navs = fund.stats?.navs ?? await getFundNAV(fund);
 
       const navsFromStartDate = navs.slice(navs.findIndex(n => n.date >= new Date(startDate))).filter(i => i.nav);
       console.log('navs', {navs, navsFromStartDate});
 
-      setMessage(`Calculating stats for ${fund.name}...`);
+      setMessage(`${count++} / ${funds.length} Calculating stats for ${fund.name}...`);
       const curFundStats = {
         navs,
         navCount: navsFromStartDate.length,
@@ -489,21 +571,41 @@ function App() {
       let rollingReturns = {};
       ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
         const cagrs = calcRollingReturns({ fund, navs: navsFromStartDate, windowYears, startDate })
-        const cagrsValue = cagrs.map(i => i.cagr)
+        // if (cagrs.length < 100) {
+        //   rollingReturns[`${windowYears}`] = {}
+        //   return
+        // }
+
+        const cagrValues = cagrs.map(i => i.cagr)
+        const cagrValuesSorted = [...cagrValues].sort((a, b) => a - b)
+        const distribution = getReturnsDistribution(cagrValues)
+
+        // const sorted = [...cagrValues].sort((a, b) => a - b)
+        // console.log({sorted})
+        // console.log(sorted[Math.floor(sorted.length * 0.1)], quantile(sorted, 0.1))
+        // console.log(sorted[Math.floor(sorted.length * 0.25)], quantile(sorted, 0.25))
+        // console.log(sorted[Math.floor(sorted.length * 0.5)], quantile(sorted, 0.5))
+
         rollingReturns[`${windowYears}`] = {
           values: cagrs,
           count: cagrs.length,
-          avg: fmtNum(calcAvg(cagrsValue)),
-          median: fmtNum(calcMedian(cagrsValue)),
-          min: Math.min(...cagrsValue),
-          max: Math.max(...cagrsValue),
-          // stdev: fmtNum(calcStdev(cagrsValue)),
+          avg: cagrValues.length && fmtNum(calcAvg(cagrValues)),
+          min: cagrValues.length && fmtNum(Math.min(...cagrValues)),
+          max: cagrValues.length && fmtNum(Math.max(...cagrValues)),
+          // stdev: fmtNum(calcStdev(cagrValues)),
+          distribution,
+          median: cagrValues.length && fmtNum(calcMedian(cagrValues)),
+          p50: cagrValues.length && fmtNum(calcQuantile(cagrValuesSorted, 0.5)),
+          p25: cagrValues.length && fmtNum(calcQuantile(cagrValuesSorted, 0.25)),
+          p10: cagrValues.length && fmtNum(calcQuantile(cagrValuesSorted, 0.1)),
         }
       });
+
+
       curFundStats.rollingReturns = rollingReturns
 
       statsCache[fund.code] = { ...fund, stats: curFundStats }
-      console.log(fund, curFundStats);
+      console.log(fund.code, fund.name, {stats: curFundStats});
 
       // update view
       setFunds((prevFunds) => {
@@ -519,14 +621,12 @@ function App() {
 
     // const chartData = funds.filter(f => statsCache[f.code]?.stats.rollingReturns[5].avg > 20).map(fund => {
     const chartFunds = funds.map(f => ({ ...f, stats: statsCache[f.code]?.stats }))
-    drawChart({ funds: chartFunds, years: rrWindow, percThreshold });
+    drawChart({ funds: chartFunds, years: rrWindow, rankThreshold });
 
 
 
     // calculate relative stats
     console.log('statsCache:', statsCache)
-    const COLOR_LOW = { red: 256, green: 256, blue: 256 }
-    const COLOR_HIGH = { red: 92, green: 184, blue: 91 }
     ROLLING_RETURNS_WINDOWS.forEach(years => {
       const avgRRs = Object.values(statsCache).map(f => f.stats.rollingReturns[years]?.avg).filter(v => typeof v !== 'undefined') // .sort((a, b) => b - a)
       const minRR = Math.min(...avgRRs)
@@ -544,6 +644,7 @@ function App() {
           const updatedFunds = prevFunds.map((f) => {
             if (f.code === fund.code) {
               const stats = { ...f.stats };
+              stats.rollingReturns[years].perc = perc
               stats.rollingReturns[years].color = color
               return { ...f, stats }
             }
@@ -615,6 +716,9 @@ function App() {
 
   return (
     <div>
+      {/*[0, 0.5, 1].map(value => {
+        return <div key={value} style={{width: 200, height: 50, border: '1px solid #888', background: colorGradient(value, COLOR_LOW, COLOR_HIGH)}}>{colorGradient(value, COLOR_LOW, COLOR_HIGH)}</div>
+      })*/}
       <div>
         <form>
           <select multiple size="8" style={{width: '100%'}} onChange={e => {
@@ -654,13 +758,13 @@ function App() {
           </label><br />
           */}
         <label>
-          Stats since: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          Stats from: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         </label>
         <br />
-        RR Window: <select style={{}} onChange={e => {
+        RR Window: <select style={{}} value={rrWindow} onChange={e => {
           const years = e.target.value ? parseInt(e.target.value) : null;
           setRRWindow(years);
-          drawChart({ funds: filteredFunds, years, percThreshold });
+          // drawChart({ funds: filteredFunds, years, rankThreshold });
         }}>
           <option value="">-</option>
           {ROLLING_RETURNS_WINDOWS.map(years => (
@@ -669,9 +773,10 @@ function App() {
         </select>
         <br />
         <label>
-          Percentage threshold: <input type="number" value={percThreshold} onChange={(e) => {
-            // drawChart({ funds: filteredFunds, years: rrWindow, percThreshold: e.target.value });
-            setPercThreshold(e.target.value)
+          Rank threshold: <input type="number" value={rankThreshold} onChange={(e) => {
+            const rank = e.target.value ? parseInt(e.target.value) : null;
+            setRankThreshold(rank);
+            // drawChart({ funds: filteredFunds, years: rrWindow, rankThreshold: rank });
           }} />
         </label>
         <br />
@@ -685,12 +790,19 @@ function App() {
 
       <div>{message}</div>
       <details>
-        <summary>Graph</summary>
-        <div id="chart-container" style={{height: 800}}></div>
+        <summary>Rolling Returns</summary>
+        <div id="chart-rr-over-time" style={{height: 800}}></div>
+      </details>
+      <details>
+        <summary>Rolling Returns Distribution</summary>
+        <div id="chart-rr-distribution" style={{height: 600}}></div>
       </details>
 
       <div>
         <div>Count: {filteredFunds.length}</div>
+        <label>
+          Show all RR Stats<input type="checkbox" checked={showAllRRStats} onChange={(e) => setShowAllRRStats(e.target.checked)} />
+        </label>
 
         <table>
           <thead>
@@ -708,20 +820,17 @@ function App() {
                     return sortedFunds
                   })
                 }}>StDev</th>
-              {ROLLING_RETURNS_WINDOWS.map(years => (
+                <th></th>
+                {ROLLING_RETURNS_WINDOWS.map(years => (
                 <th key={years} style={{cursor: 'pointer'}} onClick={() => {
                     setRRWindow(years);
-                    drawChart({ funds: filteredFunds, years, percThreshold });
+                    // drawChart({ funds: filteredFunds, years, rankThreshold });
                     // setFunds((prevFunds) => {
                     //   const sortedFunds = [...prevFunds].sort((a, b) => {
                     //     const aRR = a.stats?.rollingReturns[years]?.avg || 0
                     //     const bRR = b.stats?.rollingReturns[years]?.avg || 0
                     //     return bRR - aRR
                     //   })
-
-                    //   console.log({filteredFunds})
-                    //   drawChart({ funds: filteredFunds, years, percThreshold });
-
                     //   return sortedFunds
                     // })
                   }}>
@@ -736,7 +845,7 @@ function App() {
               <tr key={fund.code}>
                 {/* <td style={{fontSize: 10}}>{fund.category}</td> */}
                 <td>
-                  <div>
+                  <div style={{minWidth: 150}}>
                     <input type="checkbox" checked={!!fund.fav} onChange={(e) => {
                       const favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}');
                       localStorage.setItem('favFunds', JSON.stringify({...favFunds, [fund.code]: e.target.checked}));
@@ -757,14 +866,34 @@ function App() {
                 <td>
                   {fmtNum(fund.stats?.stdev)}
                 </td>
+                <td>
+                  {showAllRRStats && (
+                    <>
+                      Average
+                      <div style={{fontSize: 10, color: '#444'}}>
+                        <div>RR Count</div>
+                        <div>Min - Max</div>
+                        <div>Med</div>
+                        <div>P50</div>
+                        <div>P25</div>
+                        <div>P10</div>
+                      </div>
+                    </>
+                  )}
+                </td>
                 {ROLLING_RETURNS_WINDOWS.map(years => (
                   <td key={years} style={{backgroundColor: fund.stats?.rollingReturns[years]?.color}}>
-                    {fund.stats?.rollingReturns[years]?.avg}
-                    <div style={{fontSize: 10, color: '#888'}}>
-                      {fund.stats?.rollingReturns[years]?.count} {fund.stats?.rollingReturns[years]?.median} {fund.stats?.rollingReturns[years]?.stdev}
-                      {/*fmtNum(fund.stats?.rollingReturns[years]?.min)*/}
-                      {/*fmtNum(fund.stats?.rollingReturns[years]?.max)*/}
-                    </div>
+                    {fund.stats?.rollingReturns[years]?.count > 0 && fund.stats.rollingReturns[years]?.avg}
+                    {showAllRRStats && fund.stats?.rollingReturns[years]?.count > 0 && (
+                      <div style={{fontSize: 10, color: '#444'}}>
+                        <div>{fund.stats.rollingReturns[years]?.count}</div>
+                        <div>{fund.stats.rollingReturns[years]?.min?.toFixed(0)} - {fund.stats?.rollingReturns[years]?.max?.toFixed(0)}</div>
+                        {/*<div>{fund.stats.rollingReturns[years]?.median}</div>*/}
+                        <div>{fund.stats.rollingReturns[years]?.p50}</div>
+                        <div>{fund.stats.rollingReturns[years]?.p25}</div>
+                        <div>{fund.stats.rollingReturns[years]?.p10}</div>
+                      </div>
+                    )}
                   </td>))}
               </tr>
             ))}
