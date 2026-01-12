@@ -545,9 +545,14 @@ function App() {
   const [searchCategories, setSearchCategories] = React.useState([]);
   const [favFundsOnly, setFavFundsOnly] = React.useState(false);
 
+  const [fundsOlderThan, setFundsOlderThan] = React.useState('2020-01-01');
+
   const [startDate, setStartDate] = React.useState('2000-01-01');
   const [rankThreshold, setRankThreshold] = React.useState(5);
   const [rrWindow, setRRWindow] = React.useState(5);
+  const [sipAmount, setSipAmount] = React.useState(1000);
+  const [sipStartDate, setSipStartDate] = React.useState('2015-01-01');
+
   const [showAllRRStats, setShowAllRRStats] = React.useState(true);
 
 
@@ -639,6 +644,51 @@ function App() {
       curFundStats.stdev = calcStdev(monthlyReturns) * Math.sqrt(12);
 
 
+
+      // TODO: get SIP dates and NAVs, and calculate SIP returns and XIRR
+      const sipStartDateVal = new Date(sipStartDate);
+      let sipReturns
+      if (new Date(navs[0].date) <= sipStartDateVal) {
+        console.log(fund.name, navs[0].date, 'calculating SIP returns')
+        let investedValue = 0
+        let totalUnits = 0
+        let currentValue = 0
+
+        const installments = {};
+        navs.forEach(item => {
+          if (item.date < sipStartDateVal) return
+          const monthKey = item.date.toISOString().slice(0, 7); // YYYY-MM
+          if (!installments[monthKey] || installments[monthKey].date > item.date) {
+            const unitsBought = fmtNum(sipAmount / item.nav, 4);
+            totalUnits += unitsBought;
+            investedValue += sipAmount;
+            currentValue = fmtNum(totalUnits * item.nav, 2);
+
+            installments[monthKey] = {
+              date: item.date,
+              nav: item.nav,
+              unitsBought,
+              totalUnits,
+              investedValue,
+              currentValue,
+            };
+          }
+        })
+        console.log({installments})
+        curFundStats.sipReturns = {
+          installments,
+          currentValue,
+          investedValue,
+          totalUnits: fmtNum(totalUnits, 4),
+          gain: fmtNum(currentValue - investedValue, 2),
+          // returnPerc: investedValue ? fmtNum((currentValue - investedValue) / investedValue * 100, 2) : undefined,
+        }
+        // // Sort by date ascending (optional but useful)
+        // return Object.values(navMap).sort((a, b) => a.date - b.date);
+      }
+
+
+
       let rollingReturns = {};
       ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
         // const cagrs = calcRollingReturns({ fund, navs: navsFromStartDate, windowYears, startDate })
@@ -654,7 +704,7 @@ function App() {
         const cagrValues = cagrs.map(i => i.cagr)
         const cagrValuesSorted = [...cagrValues].sort((a, b) => a - b)
         const distribution = getReturnsDistribution(cagrValues, HISTOGRAM_BIN_SIZE)
-        console.log(fund.name, windowYears, JSON.stringify(distribution))
+        // console.log(fund.name, windowYears, JSON.stringify(distribution))
 
         // const sorted = [...cagrValues].sort((a, b) => a - b)
         // console.log({sorted})
@@ -676,8 +726,6 @@ function App() {
           p10: cagrValues.length && fmtNum(calcQuantile(cagrValuesSorted, 0.1)),
         }
       });
-
-
       curFundStats.rollingReturns = rollingReturns
 
       statsCache[fund.code] = { ...fund, stats: curFundStats }
@@ -742,8 +790,12 @@ function App() {
 
   const filteredFunds = React.useMemo(() => {
     // setMessage('Filtering funds...');
+    const fundsOlderThanDate = new Date(fundsOlderThan)
+
     let filtered = funds.filter(fund => {
       if (favFundsOnly && !fund.fav) return false
+
+      if (fund.stats && fund.stats.oldestNAVDate > fundsOlderThanDate) return false
 
       if (searchText) {
         // const searchTokens = searchText.split(' ').filter(t => t.trim());
@@ -833,11 +885,15 @@ function App() {
             }} />
           </label><br />
           */}
-        <label>
-          Stats from: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-        </label>
+        <label>Funds older than: <input type="date" value={fundsOlderThan} onChange={e => setFundsOlderThan(e.target.value)} /></label>
         <br />
-        RR Window: <select style={{}} value={rrWindow} onChange={e => {
+        <br />
+
+        <label>RR Stats from: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></label>
+        <br />
+        {/*
+        RR Window:
+        <select style={{}} value={rrWindow} onChange={e => {
           const years = e.target.value ? parseInt(e.target.value) : null;
           setRRWindow(years);
           // drawChart({ funds: filteredFunds, years, rankThreshold });
@@ -847,7 +903,15 @@ function App() {
             <option key={years} value={years}>{years} years</option>
           ))}
         </select>
-        <br />
+        */}
+        <div>
+          RR Window: {ROLLING_RETURNS_WINDOWS.map(years => {
+            return <label key={years}><input type="radio" checked={years === rrWindow} onChange={e => {
+              if (e.target.checked) setRRWindow(years)
+            }} />{years} years</label>
+          })}
+        </div>
+
         <label>
           Rank threshold: <input type="number" value={rankThreshold} onChange={(e) => {
             const rank = e.target.value ? parseInt(e.target.value) : null;
@@ -855,6 +919,11 @@ function App() {
             // drawChart({ funds: filteredFunds, years: rrWindow, rankThreshold: rank });
           }} />
         </label>
+        <br />
+
+        <label>SIP Amount: <input type="number" value={sipAmount} onChange={e => setSipAmount(parseInt(e.target.value))} /></label>
+        <br />
+        <label>SIP Start Date: <input type="date" value={sipStartDate} onChange={e => setSipStartDate(e.target.value)} /></label>
         <br />
 
         <button onClick={(e) => { e.preventDefault(); getData(filteredFunds) }}>Refresh Data</button>
@@ -913,6 +982,16 @@ function App() {
                   {years} RR
                 </th>
               ))}
+              <th onClick={e => {
+                setFunds((prevFunds) => {
+                  const sortedFunds = [...prevFunds].sort((a, b) => {
+                    const aSipReturns = a.stats?.sipReturns?.currentValue || 0
+                    const bSipReturns = b.stats?.sipReturns?.currentValue || 0
+                    return aSipReturns - bSipReturns
+                  })
+                  return sortedFunds
+                })
+              }}>SIP Returns</th>
             </tr>
           </thead>
 
@@ -971,6 +1050,10 @@ function App() {
                       </div>
                     )}
                   </td>))}
+                <td>
+                  <div>{fund.stats?.sipReturns?.currentValue && (+fund.stats.sipReturns.currentValue.toFixed(0)).toLocaleString('en-IN')}</div>
+                  <div style={{color: '#aaa', fontSize: 12}}>{fund.stats?.sipReturns?.investedValue && (+fund.stats.sipReturns.investedValue.toFixed(0)).toLocaleString('en-IN')}</div>
+                </td>
               </tr>
             ))}
           </tbody>
