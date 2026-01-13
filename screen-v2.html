@@ -532,6 +532,40 @@ function drawChart({ funds, years, rankThreshold }) {
   }
   // console.log({distributionOptions})
   Highcharts.chart('chart-rr-distribution', distributionOptions);
+
+  
+  const sipReturnsData = funds.filter(fund => { return fund.stats?.sipReturns }).map((fund, i) => {
+      return {
+        name: fund.name,
+        data: Object.values(fund.stats.sipReturns.installments).map(i => [i.date.getTime(), i.currentValue]),
+        visible: i < rankThreshold,
+      }
+    })
+  const sipReturnsOption = {
+    chart: {
+      type: 'line',
+    },
+    legend: {
+      enabled:  true,
+      layout: 'horizontal', // 'vertical',
+      align: 'left',
+      // alignColumns: false,
+      itemHiddenStyle: { color: '#ccc' },
+      maxHeight: 200,
+    },
+    tooltip: {
+      // pointFormat: '<span style="color:{series.color}"> {series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+      pointFormat: '<span style="color:{series.color}"> {series.name}</span>: <b>{point.y}</b><br/>',
+      split: false,
+      // shared: true,
+      shape: 'rect', // 'callout'
+      distance: 50,
+      followTouchMove: false,
+    },
+    series: sipReturnsData,
+  }
+  console.log({sipReturnsOption})
+  Highcharts.stockChart('chart-sip-returns', sipReturnsOption);
 }
 
 
@@ -920,6 +954,7 @@ function App() {
           }} />
         </label>
         <br />
+        <br />
 
         <label>SIP Amount: <input type="number" value={sipAmount} onChange={e => setSipAmount(parseInt(e.target.value))} /></label>
         <br />
@@ -942,7 +977,17 @@ function App() {
         <summary>Rolling Returns Distribution</summary>
         <div id="chart-rr-distribution" style={{height: 600}}></div>
       </details>
+      <details>
+        <summary>SIP Returns</summary>
+        <div id="chart-sip-returns" style={{height: 600}}></div>
+      </details>
 
+      <div>
+        <details>
+          <summary>Selected Funds</summary>
+          <textarea readOnly cols="150" rows="20" value={filteredFunds.map(fund => `[${fund.category}] ${fund.name} (${fund.code})`).join('\n')} />
+        </details>
+      </div>
       <div>
         <div>Count: {filteredFunds.length}</div>
         <label>
