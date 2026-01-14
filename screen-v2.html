@@ -25,6 +25,7 @@ table {
 }
 td, th {
   border: 1px solid #ccc;
+  padding: 6px;
 }
 th {
   background: #eee;
@@ -483,8 +484,8 @@ function drawChart({ funds, years, rankThreshold }) {
   // const maxReturn = Math.max(...funds.filter(f => f.stats.rollingReturns[years].distribution.length > 0).map(f => f.stats.rollingReturns[years].distribution[f.stats.rollingReturns[years].distribution.length - 1][0]))
   // const returnsRange = Array.from({ length: maxReturn - minReturn + 1}, (_, i) => minReturn + i)
 
-  const minReturnBand = Math.min(...funds.filter(f => f.stats.rollingReturns[years].distribution.length > 0).map(f => f.stats.rollingReturns[years].distribution[0][0]))
-  const maxReturnBand = Math.max(...funds.filter(f => f.stats.rollingReturns[years].distribution.length > 0).map(f => f.stats.rollingReturns[years].distribution[f.stats.rollingReturns[years].distribution.length - 1][0]))
+  const minReturnBand = Math.min(...funds.filter(f => f.stats.rollingReturns[years].distribution).map(f => f.stats.rollingReturns[years].distribution[0][0]))
+  const maxReturnBand = Math.max(...funds.filter(f => f.stats.rollingReturns[years].distribution).map(f => f.stats.rollingReturns[years].distribution[f.stats.rollingReturns[years].distribution.length - 1][0]))
   let bandRange = Array.from({ length: ((maxReturnBand - minReturnBand) / HISTOGRAM_BIN_SIZE) + 1}, (_, i) => minReturnBand + i * HISTOGRAM_BIN_SIZE)
   bandRange = bandRange.map(i => `${i}-${+i + HISTOGRAM_BIN_SIZE}`)
   console.log({minReturnBand, maxReturnBand, bandRange})
@@ -569,6 +570,183 @@ function drawChart({ funds, years, rankThreshold }) {
 }
 
 
+async function getData({ funds , setFunds, rrWindow, rankThreshold, setMessage, startDate, sipStartDate, sipAmount }) {
+  const statsCache = {}
+
+  let count = 1
+  await Promise.all(funds.map(async (fund, i) => {
+    setMessage(`Getting NAVs for ${fund.name}...`);
+    let navs = fund.stats?.navs ?? await getFundNAV(fund);
+
+    const navsFromStartDate = navs.slice(navs.findIndex(n => n.date >= new Date(startDate))).filter(i => i.nav);
+    console.log('navs', {navs, navsFromStartDate});
+
+    setMessage(`${count++} / ${funds.length} Calculating stats for ${fund.name}...`);
+    const curFundStats = {
+      navs,
+      navCount: navsFromStartDate.length,
+      oldestNAVDate: new Date(navs[0].date),
+      currentNAV: navs[navs.length - 1].nav,
+    }
+    // curFundStats.navCount = navs.length;
+
+
+    // Standard Deviation
+    // Trailing 3 years monthly return Std Dev
+    // const trailing3YearMonthlyNAVs = getMonthEndNavs(navs).slice(-37); // last 36 months
+    const trailing3YearMonthlyNAVs = getMonthEndNavs(navs).slice(-38, -1); // this matches Value Research Online values
+    const monthlyReturns = [];
+    for (let i = 1; i < trailing3YearMonthlyNAVs.length; i++) {
+      const currentNav = trailing3YearMonthlyNAVs[i].nav;
+      const previousNav = trailing3YearMonthlyNAVs[i - 1].nav;
+      monthlyReturns.push((currentNav - previousNav) / previousNav * 100);
+    }
+    curFundStats.stdev = calcStdev(monthlyReturns) * Math.sqrt(12);
+
+
+
+    // TODO: calculate SIP returns XIRR
+    const sipStartDateVal = new Date(sipStartDate);
+    let sipReturns
+    if (new Date(navs[0].date) <= sipStartDateVal) {
+      let investedValue = 0
+      let totalUnits = 0
+      let currentValue = 0
+
+      const installments = {};
+      navs.forEach(item => {
+        if (item.date < sipStartDateVal) return
+        const monthKey = item.date.toISOString().slice(0, 7); // YYYY-MM
+        if (!installments[monthKey] || installments[monthKey].date > item.date) {
+          const unitsBought = fmtNum(sipAmount / item.nav, 4);
+          totalUnits += unitsBought;
+          investedValue += sipAmount;
+          currentValue = fmtNum(totalUnits * item.nav, 2);
+
+          installments[monthKey] = {
+            date: item.date,
+            nav: item.nav,
+            unitsBought,
+            totalUnits,
+            investedValue,
+            currentValue,
+          };
+        }
+      })
+      console.log('SIP Installments:', installments)
+      curFundStats.sipReturns = {
+        installments,
+        currentValue,
+        investedValue,
+        totalUnits: fmtNum(totalUnits, 4),
+        gain: fmtNum(currentValue - investedValue, 2),
+        // returnPerc: investedValue ? fmtNum((currentValue - investedValue) / investedValue * 100, 2) : undefined,
+      }
+      // // Sort by date ascending (optional but useful)
+      // return Object.values(navMap).sort((a, b) => a.date - b.date);
+    }
+
+
+
+    let rollingReturns = {};
+    ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
+      // const cagrs = calcRollingReturns({ fund, navs: navsFromStartDate, windowYears, startDate })
+      const cagrs = calcRollingReturns({ navs: navsFromStartDate, windowYears })
+
+      // if (cagrs.length < 100) {
+      //   rollingReturns[`${windowYears}`] = {
+      //     count: 0,
+      //     distribution: [],
+      //   }
+      //   return
+      // }
+
+      rollingReturns[`${windowYears}`] = {
+        values: cagrs,
+        count: cagrs.length,
+      }
+      if (cagrs.length > 0) {
+        const cagrValues = cagrs.map(i => i.cagr)
+        const cagrValuesSorted = [...cagrValues].sort((a, b) => a - b)
+        const distribution = getReturnsDistribution(cagrValuesSorted, HISTOGRAM_BIN_SIZE)
+
+        rollingReturns[`${windowYears}`] = {
+          ...rollingReturns[`${windowYears}`],
+          avg: fmtNum(calcAvg(cagrValues)),
+          distribution,
+          min: fmtNum(Math.min(...cagrValues)),
+          max: (cagrValues.length > 0) && fmtNum(Math.max(...cagrValues)),
+          median: fmtNum(calcMedian(cagrValues)),
+          p50: fmtNum(calcQuantile(cagrValuesSorted, 0.5)),
+          p25: fmtNum(calcQuantile(cagrValuesSorted, 0.25)),
+          p10: fmtNum(calcQuantile(cagrValuesSorted, 0.1)),
+          // stdev: fmtNum(calcStdev(cagrValues)),
+        }
+      }
+    });
+    curFundStats.rollingReturns = rollingReturns
+
+    statsCache[fund.code] = { ...fund, stats: curFundStats }
+    console.log(fund.code, fund.name, curFundStats);
+
+    // update view
+    setFunds((prevFunds) => {
+      const updatedFunds = prevFunds.map((f) => {
+        if (f.code === fund.code) return { ...f, stats: curFundStats }
+        return f
+      })
+      return updatedFunds
+    })
+  }))
+  setMessage('Done');
+
+
+  // const chartData = funds.filter(f => statsCache[f.code]?.stats.rollingReturns[5].avg > 20).map(fund => {
+  const chartFunds = funds.map(f => ({ ...f, stats: statsCache[f.code]?.stats }))
+  drawChart({ funds: chartFunds, years: rrWindow, rankThreshold });
+
+
+
+  // calculate relative stats
+  console.log('statsCache:', statsCache)
+  ROLLING_RETURNS_WINDOWS.forEach(years => {
+    const avgRRs = Object.values(statsCache).map(f => f.stats.rollingReturns[years]?.avg).filter(v => typeof v !== 'undefined') // .sort((a, b) => b - a)
+    const minRR = Math.min(...avgRRs)
+    const maxRR = Math.max(...avgRRs)
+    console.log({years, avgRRs, minRR, maxRR})
+    console.log(Object.values(statsCache).map(f => f.stats.rollingReturns[years]))
+
+    funds.forEach(fund => {
+      if (!statsCache[fund.code].stats.rollingReturns[years]) return
+
+      // let perc = statsCache[fund.code].stats.rollingReturns[years].avg / maxRR
+      let perc = (statsCache[fund.code].stats.rollingReturns[years].avg - minRR) / (maxRR - minRR)
+      perc = isNaN(perc) ? 0 : perc
+      const color = colorGradient(perc, COLOR_LOW, COLOR_HIGH)
+
+      setFunds((prevFunds) => {
+        const updatedFunds = prevFunds.map((f) => {
+          if (f.code === fund.code) {
+            const stats = { ...f.stats };
+            stats.rollingReturns[years].perc = perc
+            stats.rollingReturns[years].color = color
+            return { ...f, stats }
+          }
+          return f
+        })
+        return updatedFunds
+      })
+
+    })
+
+    // avgRR.sort((a, b) => b.avgRR - a.avgRR)
+    // avgRR.forEach((item, index) => {
+    //   if (!statsCache[item.code].stats.rollingReturns[years]) return
+    //   statsCache[item.code].stats.rollingReturns[years].rank = index + 1
+    // })
+  })
+}
+
 
 function App() {
   const [loading, setLoading] = React.useState(true);
@@ -587,7 +765,9 @@ function App() {
   const [sipAmount, setSipAmount] = React.useState(1000);
   const [sipStartDate, setSipStartDate] = React.useState('2015-01-01');
 
-  const [showAllRRStats, setShowAllRRStats] = React.useState(true);
+  // const [showAllRRStats, setShowAllRRStats] = React.useState(true);
+  const [showRRMinMax, setShowRRMinMax] = React.useState(false);
+  const [showRRQuantile, setShowRRQuantile] = React.useState(false);
 
 
 // const [rawFunds, setRawFunds] = React.useState(null);
@@ -642,184 +822,6 @@ function App() {
     load();
   }, []);
 
-
-
-  async function getData(funds) {
-    const statsCache = {}
-
-    let count = 1
-    await Promise.all(funds.map(async (fund, i) => {
-      setMessage(`Getting NAVs for ${fund.name}...`);
-      let navs = fund.stats?.navs ?? await getFundNAV(fund);
-
-      const navsFromStartDate = navs.slice(navs.findIndex(n => n.date >= new Date(startDate))).filter(i => i.nav);
-      console.log('navs', {navs, navsFromStartDate});
-
-      setMessage(`${count++} / ${funds.length} Calculating stats for ${fund.name}...`);
-      const curFundStats = {
-        navs,
-        navCount: navsFromStartDate.length,
-        oldestNAVDate: new Date(navs[0].date),
-        currentNAV: navs[navs.length - 1].nav,
-      }
-      // curFundStats.navCount = navs.length;
-
-
-      // Standard Deviation
-      // Trailing 3 years monthly return Std Dev
-      // const trailing3YearMonthlyNAVs = getMonthEndNavs(navs).slice(-37); // last 36 months
-      const trailing3YearMonthlyNAVs = getMonthEndNavs(navs).slice(-38, -1); // this matches Value Research Online values
-      const monthlyReturns = [];
-      for (let i = 1; i < trailing3YearMonthlyNAVs.length; i++) {
-        const currentNav = trailing3YearMonthlyNAVs[i].nav;
-        const previousNav = trailing3YearMonthlyNAVs[i - 1].nav;
-        monthlyReturns.push((currentNav - previousNav) / previousNav * 100);
-      }
-      curFundStats.stdev = calcStdev(monthlyReturns) * Math.sqrt(12);
-
-
-
-      // TODO: get SIP dates and NAVs, and calculate SIP returns and XIRR
-      const sipStartDateVal = new Date(sipStartDate);
-      let sipReturns
-      if (new Date(navs[0].date) <= sipStartDateVal) {
-        console.log(fund.name, navs[0].date, 'calculating SIP returns')
-        let investedValue = 0
-        let totalUnits = 0
-        let currentValue = 0
-
-        const installments = {};
-        navs.forEach(item => {
-          if (item.date < sipStartDateVal) return
-          const monthKey = item.date.toISOString().slice(0, 7); // YYYY-MM
-          if (!installments[monthKey] || installments[monthKey].date > item.date) {
-            const unitsBought = fmtNum(sipAmount / item.nav, 4);
-            totalUnits += unitsBought;
-            investedValue += sipAmount;
-            currentValue = fmtNum(totalUnits * item.nav, 2);
-
-            installments[monthKey] = {
-              date: item.date,
-              nav: item.nav,
-              unitsBought,
-              totalUnits,
-              investedValue,
-              currentValue,
-            };
-          }
-        })
-        console.log({installments})
-        curFundStats.sipReturns = {
-          installments,
-          currentValue,
-          investedValue,
-          totalUnits: fmtNum(totalUnits, 4),
-          gain: fmtNum(currentValue - investedValue, 2),
-          // returnPerc: investedValue ? fmtNum((currentValue - investedValue) / investedValue * 100, 2) : undefined,
-        }
-        // // Sort by date ascending (optional but useful)
-        // return Object.values(navMap).sort((a, b) => a.date - b.date);
-      }
-
-
-
-      let rollingReturns = {};
-      ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
-        // const cagrs = calcRollingReturns({ fund, navs: navsFromStartDate, windowYears, startDate })
-        const cagrs = calcRollingReturns({ navs: navsFromStartDate, windowYears })
-        // if (cagrs.length < 100) {
-        //   rollingReturns[`${windowYears}`] = {
-        //     count: 0,
-        //     distribution: [],
-        //   }
-        //   return
-        // }
-
-        const cagrValues = cagrs.map(i => i.cagr)
-        const cagrValuesSorted = [...cagrValues].sort((a, b) => a - b)
-        const distribution = getReturnsDistribution(cagrValues, HISTOGRAM_BIN_SIZE)
-        // console.log(fund.name, windowYears, JSON.stringify(distribution))
-
-        // const sorted = [...cagrValues].sort((a, b) => a - b)
-        // console.log({sorted})
-        // console.log(sorted[Math.floor(sorted.length * 0.1)], quantile(sorted, 0.1))
-        // console.log(sorted[Math.floor(sorted.length * 0.25)], quantile(sorted, 0.25))
-        // console.log(sorted[Math.floor(sorted.length * 0.5)], quantile(sorted, 0.5))
-
-        rollingReturns[`${windowYears}`] = {
-          values: cagrs,
-          count: cagrs.length,
-          distribution,
-          avg: cagrValues.length && fmtNum(calcAvg(cagrValues)),
-          min: cagrValues.length && fmtNum(Math.min(...cagrValues)),
-          max: cagrValues.length && fmtNum(Math.max(...cagrValues)),
-          // stdev: fmtNum(calcStdev(cagrValues)),
-          median: cagrValues.length && fmtNum(calcMedian(cagrValues)),
-          p50: cagrValues.length && fmtNum(calcQuantile(cagrValuesSorted, 0.5)),
-          p25: cagrValues.length && fmtNum(calcQuantile(cagrValuesSorted, 0.25)),
-          p10: cagrValues.length && fmtNum(calcQuantile(cagrValuesSorted, 0.1)),
-        }
-      });
-      curFundStats.rollingReturns = rollingReturns
-
-      statsCache[fund.code] = { ...fund, stats: curFundStats }
-      console.log(fund.code, fund.name, {stats: curFundStats});
-
-      // update view
-      setFunds((prevFunds) => {
-        const updatedFunds = prevFunds.map((f) => {
-          if (f.code === fund.code) return { ...f, stats: curFundStats }
-          return f
-        })
-        return updatedFunds
-      })
-    }))
-    setMessage('Done');
-
-
-    // const chartData = funds.filter(f => statsCache[f.code]?.stats.rollingReturns[5].avg > 20).map(fund => {
-    const chartFunds = funds.map(f => ({ ...f, stats: statsCache[f.code]?.stats }))
-    drawChart({ funds: chartFunds, years: rrWindow, rankThreshold });
-
-
-
-    // calculate relative stats
-    console.log('statsCache:', statsCache)
-    ROLLING_RETURNS_WINDOWS.forEach(years => {
-      const avgRRs = Object.values(statsCache).map(f => f.stats.rollingReturns[years]?.avg).filter(v => typeof v !== 'undefined') // .sort((a, b) => b - a)
-      const minRR = Math.min(...avgRRs)
-      const maxRR = Math.max(...avgRRs)
-
-      funds.forEach(fund => {
-        if (!statsCache[fund.code].stats.rollingReturns[years]) return
-
-        // let perc = statsCache[fund.code].stats.rollingReturns[years].avg / maxRR
-        let perc = (statsCache[fund.code].stats.rollingReturns[years].avg - minRR) / (maxRR - minRR)
-        perc = isNaN(perc) ? 0 : perc
-        const color = colorGradient(perc, COLOR_LOW, COLOR_HIGH)
-
-        setFunds((prevFunds) => {
-          const updatedFunds = prevFunds.map((f) => {
-            if (f.code === fund.code) {
-              const stats = { ...f.stats };
-              stats.rollingReturns[years].perc = perc
-              stats.rollingReturns[years].color = color
-              return { ...f, stats }
-            }
-            return f
-          })
-          return updatedFunds
-        })
-
-      })
-
-      // avgRR.sort((a, b) => b.avgRR - a.avgRR)
-      // avgRR.forEach((item, index) => {
-      //   if (!statsCache[item.code].stats.rollingReturns[years]) return
-      //   statsCache[item.code].stats.rollingReturns[years].rank = index + 1
-      // })
-    })
-  }
 
 
   const filteredFunds = React.useMemo(() => {
@@ -961,7 +963,11 @@ function App() {
         <label>SIP Start Date: <input type="date" value={sipStartDate} onChange={e => setSipStartDate(e.target.value)} /></label>
         <br />
 
-        <button onClick={(e) => { e.preventDefault(); getData(filteredFunds) }}>Refresh Data</button>
+        <button onClick={(e) => {
+          e.preventDefault();
+          // getData(filteredFunds);
+          getData({ funds: filteredFunds, setFunds, rrWindow, rankThreshold, setMessage, startDate, sipStartDate, sipAmount })
+        }}>Refresh Data</button>
         <br />
         <hr />
 
@@ -990,9 +996,11 @@ function App() {
       </div>
       <div>
         <div>Count: {filteredFunds.length}</div>
-        <label>
-          Show all RR Stats<input type="checkbox" checked={showAllRRStats} onChange={(e) => setShowAllRRStats(e.target.checked)} />
-        </label>
+        <div>
+          RR Stats:
+          <label><input type="checkbox" checked={showRRMinMax} onChange={(e) => setShowRRMinMax(e.target.checked)} /> Min-Max</label>
+          <label><input type="checkbox" checked={showRRQuantile} onChange={(e) => setShowRRQuantile(e.target.checked)} /> Percentile</label>
+        </div>
 
         <table>
           <thead>
@@ -1067,31 +1075,42 @@ function App() {
                   {fmtNum(fund.stats?.stdev)}
                 </td>
                 <td>
-                  {showAllRRStats && (
+                  {(
                     <>
                       Average
                       <div style={{fontSize: 10, color: '#444'}}>
-                        <div>RR Count</div>
-                        <div>Min - Max</div>
-                        <div>Med</div>
-                        <div>P50</div>
-                        <div>P25</div>
-                        <div>P10</div>
+                        <div>Count</div>
+                        {showRRMinMax && <div>Min - Max</div>}
+                        {showRRQuantile && (
+                          <>
+                            <div>Med</div>
+                            <div>P50</div>
+                            <div>P25</div>
+                            <div>P10</div>
+                          </>
+                        )}
                       </div>
                     </>
                   )}
                 </td>
                 {ROLLING_RETURNS_WINDOWS.map(years => (
                   <td key={years} style={{backgroundColor: fund.stats?.rollingReturns[years]?.color}}>
-                    {fund.stats?.rollingReturns[years]?.count > 0 && fund.stats.rollingReturns[years]?.avg}
-                    {showAllRRStats && fund.stats?.rollingReturns[years]?.count > 0 && (
+                    {fund.stats?.rollingReturns[years]?.avg && fund.stats.rollingReturns[years]?.avg.toFixed(1)}
+
+                    <div style={{fontSize: 10, color: '#444'}}>
+                      <div>{fund.stats?.rollingReturns?.[years]?.count > 0 && fund.stats?.rollingReturns?.[years]?.count}</div>
+                    </div>
+                    {showRRMinMax && fund.stats?.rollingReturns[years]?.count > 0 && (
                       <div style={{fontSize: 10, color: '#444'}}>
-                        <div>{fund.stats.rollingReturns[years]?.count}</div>
                         <div>{fund.stats.rollingReturns[years]?.min?.toFixed(0)} - {fund.stats?.rollingReturns[years]?.max?.toFixed(0)}</div>
-                        {/*<div>{fund.stats.rollingReturns[years]?.median}</div>*/}
-                        <div>{fund.stats.rollingReturns[years]?.p50}</div>
-                        <div>{fund.stats.rollingReturns[years]?.p25}</div>
-                        <div>{fund.stats.rollingReturns[years]?.p10}</div>
+                      </div>
+                    )}
+                    {showRRQuantile && fund.stats?.rollingReturns[years]?.count > 0 && (
+                      <div style={{fontSize: 10, color: '#444'}}>
+                        <div>{fund.stats.rollingReturns[years]?.median.toFixed(1)}</div>
+                        <div>{fund.stats.rollingReturns[years]?.p50.toFixed(1)}</div>
+                        <div>{fund.stats.rollingReturns[years]?.p25.toFixed(1)}</div>
+                        <div>{fund.stats.rollingReturns[years]?.p10.toFixed(1)}</div>
                       </div>
                     )}
                   </td>))}
