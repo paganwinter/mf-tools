@@ -991,7 +991,7 @@ function App() {
       <div>
         <details>
           <summary>Selected Funds</summary>
-          <textarea readOnly cols="150" rows="20" value={filteredFunds.sort((a, b) => (a.category > b.category ? 1 : -1)).map(fund => `[${fund.category}] ${fund.name} (${fund.code})`).join('\n')} />
+          <textarea readOnly cols="150" rows="20" value={[...filteredFunds].sort((a, b) => (a.category > b.category ? 1 : -1)).map(fund => `[${fund.category}] ${fund.name} (${fund.code})`).join('\n')} />
         </details>
       </div>
       <div>
