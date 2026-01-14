@@ -49,7 +49,18 @@ const ROLLING_RETURNS_WINDOWS = [1,2,3,4,5,6,7,8,9,10]
 const TRADING_DAYS_IN_YEAR = 247
 const COLOR_LOW = { red: 256, green: 256, blue: 256 }
 const COLOR_HIGH = { red: 92, green: 184, blue: 91 }
+
 const HISTOGRAM_BIN_SIZE = 10
+const HISTOGRAM_BANDS = {
+  '<0': [, 0],
+  '0-5': [0, 5],
+  '5-10': [5, 10],
+  '10-15': [10, 15],
+  '15-20': [15, 20],
+  '20-25': [20, 25],
+  '25-30': [25, 30],
+  '>30': [30, ],
+}
 
 
 function parseCategory(amfiCat) {
@@ -254,7 +265,7 @@ function calcRollingReturns(opts) {
 //   }
 //   return Object.entries(percentages).map(([ret, count]) => ([+ret, count])).sort((a, b) => a[0] - b[0]);
 // }
-function getReturnsDistribution(list, binSize) {
+function getReturnsDistribution_(list, binSize) {
   const minVal = Math.min(...list);
   const maxVal = Math.max(...list);
   const startVal = Math.floor(minVal / binSize) * binSize;
@@ -297,6 +308,25 @@ function getReturnsDistribution(list, binSize) {
   }
   return Object.entries(percentages).map(([ret, perc]) => ([+ret, perc])).sort((a, b) => a[0] - b[0]);
 }
+function getReturnsDistribution(list, binSize) {
+  const histogram = {};
+  list.forEach(value => {
+    for (const band in HISTOGRAM_BANDS) {
+      const [lower, upper] = HISTOGRAM_BANDS[band];
+      if ((typeof lower === 'undefined' || value >= lower) && (typeof upper === 'undefined' || value < upper)) {
+        histogram[band] = (histogram[band] || 0) + 1;
+        break;
+      }
+    }
+  })
+  const percentages = {};
+  const totalCount = list.length;
+  for (const band in histogram) {
+    percentages[band] = +((histogram[band] / totalCount) * 100).toFixed(2);
+  }
+  return Object.entries(percentages).map(([band, perc]) => ([band, perc])).sort((a, b) => a[0] - b[0]);
+}
+
 
 function calcAvg(values) {
   if (values.length === 0) return undefined
@@ -472,7 +502,8 @@ function drawChart({ funds, years, rankThreshold }) {
   const distributionData = funds.map((fund, i) => {
       return {
         name: fund.name,
-        data: fund.stats.rollingReturns?.[years]?.distribution?.map(([band, count]) => ([`${band}-${band + 5}`, count])) ?? [],
+        // data: fund.stats.rollingReturns?.[years]?.distribution?.map(([band, count]) => ([`${band}-${band + HISTOGRAM_BIN_SIZE}`, count])) ?? [],
+        data: fund.stats.rollingReturns?.[years]?.distribution ?? [],
         // visible: fund.stats.rollingReturns?.[years]?.avg >= rankThreshold,
         visible: i < rankThreshold,
       }
@@ -484,15 +515,17 @@ function drawChart({ funds, years, rankThreshold }) {
   // const maxReturn = Math.max(...funds.filter(f => f.stats.rollingReturns[years].distribution.length > 0).map(f => f.stats.rollingReturns[years].distribution[f.stats.rollingReturns[years].distribution.length - 1][0]))
   // const returnsRange = Array.from({ length: maxReturn - minReturn + 1}, (_, i) => minReturn + i)
 
-  const minReturnBand = Math.min(...funds.filter(f => f.stats.rollingReturns[years].distribution).map(f => f.stats.rollingReturns[years].distribution[0][0]))
-  const maxReturnBand = Math.max(...funds.filter(f => f.stats.rollingReturns[years].distribution).map(f => f.stats.rollingReturns[years].distribution[f.stats.rollingReturns[years].distribution.length - 1][0]))
-  let bandRange = Array.from({ length: ((maxReturnBand - minReturnBand) / HISTOGRAM_BIN_SIZE) + 1}, (_, i) => minReturnBand + i * HISTOGRAM_BIN_SIZE)
-  bandRange = bandRange.map(i => `${i}-${+i + HISTOGRAM_BIN_SIZE}`)
-  console.log({minReturnBand, maxReturnBand, bandRange})
+  // const minReturnBand = Math.min(...funds.filter(f => f.stats.rollingReturns[years].distribution).map(f => f.stats.rollingReturns[years].distribution[0][0]))
+  // const maxReturnBand = Math.max(...funds.filter(f => f.stats.rollingReturns[years].distribution).map(f => f.stats.rollingReturns[years].distribution[f.stats.rollingReturns[years].distribution.length - 1][0]))
+  // let bandRange = Array.from({ length: ((maxReturnBand - minReturnBand) / HISTOGRAM_BIN_SIZE) + 1}, (_, i) => minReturnBand + i * HISTOGRAM_BIN_SIZE)
+  // bandRange = bandRange.map(i => `${i}-${+i + HISTOGRAM_BIN_SIZE}`)
+  // console.log({minReturnBand, maxReturnBand, bandRange})
+  const bandRange = Object.keys(HISTOGRAM_BANDS);
 
   const distributionOptions = {
     chart: {
-      type: 'spline'
+      // type: 'spline'
+      type: 'line'
     },
     plotOptions: {
       // column: {},
@@ -669,6 +702,7 @@ async function getData({ funds , setFunds, rrWindow, rankThreshold, setMessage, 
         const cagrValues = cagrs.map(i => i.cagr)
         const cagrValuesSorted = [...cagrValues].sort((a, b) => a - b)
         const distribution = getReturnsDistribution(cagrValuesSorted, HISTOGRAM_BIN_SIZE)
+        console.log(fund.name, distribution)
 
         rollingReturns[`${windowYears}`] = {
           ...rollingReturns[`${windowYears}`],
