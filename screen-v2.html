@@ -623,6 +623,56 @@ async function getData({ funds , setFunds, rrWindow, rankThreshold, setMessage, 
     }
     // curFundStats.navCount = navs.length;
 
+    // TODO: stats
+    // alpha, beta, sharpe ratio, sortino
+    // s01: No of rollling return entries Index (1 Years)
+    // s02: No of rollling return entries Fund (1 years)
+    // s03: No of times fund has outperformed index (1 years)
+    // s04: (s03/s02) rolling return outperformance Consistency Score
+    // s05: upside performance consistency (percent of times fund performed better than category benchmark when benchmark was moving up)
+    // s06: downside protection consistency (percent of times fund performed better than category benchmark when benchmark was moving down)
+    // upside-capture-ratio = Upside-CAGR-Fund/Upside-CAGR-Index
+    // downside-capture-ratio = Downside-CAGR-Fund/Downside-CAGR-Index
+    // capture ratio = (upside capture / downside capture) - higher the better
+    // upside capture consistency = percent of times upside-capture-ratio was > 100%
+    // downside capture consistency = percent of times downside-capture-ratio was < 100%
+    // s07: no of times fund outperformed index by 25%
+    // s08: no of times fund underperformed index by 25%
+    // s09: % outperformance (by 25%)
+    // s10: % underperformance (by 25%)
+    // srinivesh screener
+    // % of various periods where the fund’s CAGR was among the top N in the category
+    // % of times when the fund's return was greater than the category median
+    // % of times when the fund's return was greater than the category median
+
+    // risk
+    // - beta
+    // - standard deviation
+    // - tracking error
+    // - capture ratio
+    // - value at risk
+    // performance
+    // - alpha
+    // - sharpe ratio
+    // - rolling returns
+    // - sortino ratio
+    // - treynor ratio
+    // cost
+    // - AUM
+    // - turnover ratio
+    // - total expense ratio
+    // - management fee
+    // - transaction costs
+    // - load fees
+
+    // important metrics
+    // - rolling returns - done
+    // - standard deviation - done
+    // - beta
+    // - sharpe ratio
+    // - AUM
+    // - TER
+
 
     // Standard Deviation
     // Trailing 3 years monthly return Std Dev

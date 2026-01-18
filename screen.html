@@ -274,10 +274,7 @@ function calculateStats(navs, benchmark) {
 
   // rolling returns for various periods
   // count, min, max, average, negative-%, positive-%
-  // count of outperfromance over index, percent
-  // rolling return outperformance consistency score
-  // upside performance consistency
-  // downside protection consistency
+  // count of outperformance over index, percent
   let rollingReturns = []
   for (let i = 1; i <= 10; i++) {
     let rr = calcRollingReturns(navs, i, benchmark)
