@@ -8,8 +8,8 @@ const DATA_DIR = './data'
 let loopCount = 0
 
 // const ROLLING_RETURNS_WINDOWS = [1,2,3,4,5,6,7,8,9,10,11,12]
-const ROLLING_RETURNS_WINDOWS = [1,3,5,8,10,12]
 // const ROLLING_RETURNS_WINDOWS = [12,10,8,5,3,2,1]
+const ROLLING_RETURNS_WINDOWS = [1,2,3,5,8,10]
 
 
 const agent = process.env.HTTP_PROXY ? new HttpsProxyAgent('http://localhost:3128', { headers: {} }) : undefined;
@@ -45,87 +45,6 @@ async function sleep(ms) {
   return new Promise(function (resolve, reject) {
     setTimeout(function () { resolve() }, ms)
   })
-}
-
-
-function subtractMonths_old(dateStr, months) {
-  let newDt = new Date(dateStr)
-  newDt.setMonth(newDt.getMonth() - months)
-  return newDt
-}
-function calculateRollingReturnsStats_old(navs, years, indexData) {
-  let cagrs = []
-  let bmBeat = []
-  let bmDiff = []
-  let overlapCount = 0
-  let benchmarkBeatCount = 0
-
-  Object.keys(navs).forEach(endDate => {
-    // let startDt = moment(endDtStr).subtract(years, 'years')
-    // let startDtStr = moment(startDt).format('yyyy-MM-DD')
-    // let startDate = new Date(new Date(endDate).getTime() - (years * 365 * 24 * 60 * 60 * 1000))
-    let startDate = subtractMonths_old(endDate, (years * 12))
-    startDate = startDate.toISOString().split('T')[0]
-
-    if (navs[startDate] > 0) {
-      let cagr = calculateCagr(navs[startDate], navs[endDate], years)
-      // if(cagr === Infinity) console.log(startDate, navs[startDate], navs[endDate], years)
-      cagrs.push(cagr)
-
-      // TODO
-      // if (indexData && indexData[years]) {
-      //   let benchmarkCagr = indexData[years][`${startDtStr}_${endDtStr}`]
-      //   if (typeof benchmarkCagr !== 'undefined') {
-      //     overlapCount++
-      //     if (cagr > benchmarkCagr) {
-      //       benchmarkBeatCount++
-      //     }
-      //     // bmBeat.push(cagr > benchmarkCagr)
-      //     bmDiff.push(cagr - benchmarkCagr)
-      //   }  
-      // }
-    }
-  })
-
-  let min
-  let max
-  let avg
-  let count = cagrs.length
-  let percNeg
-  let percPos
-
-  // TODO
-  let benchmarkBeatPerc
-  let avgOverBenchmark
-  // // let benchmarkBeatPerc = fmtNum(bmBeat.filter(beat => beat).length / bmBeat.length * 100)
-
-  // TODO
-  // if (overlapCount) {
-  //   benchmarkBeatPerc = fmtNum(benchmarkBeatCount / overlapCount * 100)
-  // }
-  // if (bmDiff.length) {
-  //   avgOverBenchmark = fmtNum(bmDiff.reduce((acc, item) => (acc + item), 0) / bmDiff.length)
-  // }
-
-  if (cagrs.length > 0) {
-    min = fmtNum(Math.min(...cagrs))
-    max = fmtNum(Math.max(...cagrs))
-    avg = fmtNum(cagrs.reduce((acc, item) => (acc + item), 0) / cagrs.length)
-    percNeg = fmtNum(cagrs.filter(c => c < 0).length / count * 100)
-    percPos = fmtNum(cagrs.filter(c => c > 0).length / count * 100)
-  }
-  return {
-    years,
-    // cagrs,
-    count,
-    avg,
-    min,
-    max,
-    percNeg,
-    percPos,
-    // benchmarkBeatPerc,
-    // avgOverBenchmark,
-  }
 }
 
 
@@ -214,58 +133,22 @@ function parseAMFIFunds(data) {
     }
   }
   return {
+    categories: Object.keys(categories),
+    fundHouses: Object.keys(fundHouses),
     // funds: funds.sort((a, b) => (+a.code) - (+b.code)),
     funds,
-    fundHouses: Object.keys(fundHouses),
-    categories: Object.keys(categories),
     // types: Object.keys(types),
     // schemes: Object.keys(schemes),
     // rawCategories: Object.keys(rawCategories),
   }
 }
 
-async function refreshFundsList() {
-  if (!fs.existsSync(DATA_DIR)){
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  try {
-    const amfiNavUrl = 'https://www.amfiindia.com/spages/NAVOpen.txt'
-    log.info(`Downloading NAVOpen.txt from amfiindia.com`)
-    // NOTE: https://www.amfiindia.com/nav-history-download
-    const amfiData = await http(amfiNavUrl)
-    if (amfiData.status === 200) {
-      // log.info(amfiData)
-      fs.writeFileSync(DATA_DIR+'/NAVOpen.txt', amfiData.body)
-      log.info(`- Saved NAVOpen.txt`)
-    }
-
-    log.info('Parsing raw funds data')
-    // log.info('Generating '+DATA_DIR+'/funds-data.json')
-    // let master = parseAMFIFunds(fundsList.body)
-    let fundsData = parseAMFIFunds(fs.readFileSync(DATA_DIR+'/NAVOpen.txt', 'utf-8'))
-    log.info('- Funds count:', fundsData.funds.length)
-    fs.writeFileSync(DATA_DIR+'/funds-data.json', JSON.stringify(fundsData, null, 2))
-    log.info(`- Saved funds data into funds-data.json`)
-
-    log.info('Generating funds.csv')
-    const fundsCsvRows = []
-    fundsData.funds.forEach((fund) => {
-      const { code, type, scheme, category, fundHouse, name, nav, date, isinDivPayGrowth, isiniDivReinvest } = fund
-      fundsCsvRows.push({ code, name, scheme, category, fundHouse, nav, date, isinDivPayGrowth, isiniDivReinvest })
-    })
-    fs.writeFileSync(DATA_DIR+'/funds.csv', toCsv(fundsCsvRows))
-    log.info('- Saved funds.csv')
-  } catch(error) {
-    log.error(error)
-    log.warn('Error refreshing funds list')
-    // throw error
-    // log.info('Retrying...')
-    // refreshFundsList()
-  }
-}
-
 let navRetries = 0
 async function refreshNavs(funds) {
+  log.info('Refreshing NAVs for selected funds...');
+
+  const navStart = new Date();
+
   const opDir = DATA_DIR+'/navs'
   if (!fs.existsSync(opDir)){
     fs.mkdirSync(opDir, { recursive: true });
@@ -277,14 +160,7 @@ async function refreshNavs(funds) {
     let response
     try {
       response = await http(`https://api.mfapi.in/mf/${fund.code}`)
-      const navs = JSON.parse(response.body).data
-        .map(({ date, nav }) => {
-          let [dd, mm, yyyy] = date.split('-')
-          return {
-            date: `${yyyy}-${mm}-${dd}`,
-            nav: parseFloat(nav),
-          }
-        })
+      const navs = JSON.parse(response.body).data.map(({ date, nav }) => ({ date: date.split('-').reverse().join('-'), nav: parseFloat(nav) }))
       // log.info('Writing '+DATA_DIR+'/navs/'+fund.code+'.csv')
       const navsCsv = []
       // navsCsv.push('code,class,category,fundHouse,name,aum')
@@ -316,111 +192,83 @@ async function refreshNavs(funds) {
       log.warn('Retried failing NAVs 10 times, but some still failed; not updating for those...')
     }
   }
+
+  log.info(`- Finished fetching NAVs in ${(new Date() - navStart)/1000} s`);
 }
 
 
 function calculateCagr(startNAV, endNAV, years) {
-  // const cagr = (Math.pow(endNAV / startNAV, 1 / years) - 1) * 100
-  const cagr = ((endNAV / startNAV) ** (1 / years) - 1) * 100
-  return +cagr.toFixed(2)
+  // const cagr = (Math.pow(endNAV / startNAV, 1 / years) - 1) * 100;
+  const cagr = ((endNAV / startNAV) ** (1 / years) - 1) * 100;
+  // return +cagr.toFixed(2);
+  return cagr;
 }
-function calculateAverage(values) {
-  if (values.length < 1) return undefined
-  return values.reduce((acc, item) => (acc + item), 0) / values.length
-}
-function calculateMedian(values) {
-  if (values.length < 1) return undefined
-  // Sorting values, preventing original array from being mutated.
-  const valuesSorted = [...values].sort((a, b) => a - b);
-  const half = Math.floor(valuesSorted.length / 2);
-  return (valuesSorted.length % 2)
-    ? valuesSorted[half]
-    : (valuesSorted[half - 1] + valuesSorted[half]) / 2
-}
-function calculateStandardDeviation(values, _average) {
-  if (values.length < 1) return undefined
-  const average = calculateAverage(values)
-  // let totalVariance = 0
-  // values.forEach(cagr => {
-  //   totalVariance += Math.pow(cagr - average, 2)
-  // })
-  // const variance = totalVariance/values.length
-  const variance = calculateAverage(values.map(val => (val - average) ** 2));
-  return Math.sqrt(variance)
-}
-function calculateRollingReturns(navsMap, windowYears) {
-  // NOTE: navsMap must be ordered from newest to oldest date
-  const earliestNavDate = Object.keys(navsMap)[Object.keys(navsMap).length - 1]
+function calculateRollingReturns(opts) {
+  // const days = (navs[navs.length - 1].date - navs[0].date) / (1000 * 60 * 60 * 24);
+  // const years = days / 365;
+  // const navsPerYear = navs.length / years;
+  // console.log('days:', days, 'navs:', navs.length, years, navsPerYear.toFixed(2), 'navs/year');
+  // // console.log(navs[0].date, 'to', navs[navs.length - 1].date, ' count:', navs.length)
 
-  // assume 52 * 7 days in a year so that (date minus 364 days) is guaranteed to be the same day of the week
-  // this helps avoid sitations where previous date is a weekend when there is no NAV data
-  const daysInWindow = windowYears * 52 * 7
+  const { navs, windowYears } = opts;
+  const startDate = opts.startDate ? new Date(opts.startDate) : navs[0].date
+  const navList = navs.slice(navs.findIndex(n => n.date >= startDate))
 
-  let cagrs = []
-  for (const date in navsMap) {
-    loopCount++
-    // startNavDate = endNavDate - days in window
-    const sellDateStr = date
-    let buyDate = new Date(date)
-    buyDate.setDate(buyDate.getDate() - daysInWindow)
-    const buyDateStr = buyDate.toISOString().split('T')[0]
+  // // assume 52 * 7 days in a year so that (date minus 364 days) is guaranteed to be the same day of the week
+  // // this helps avoid sitations where previous date is a weekend when there is no NAV data
+  // const daysInWindow = windowYears * 52 * 7
+  // const latestNAVDate = navList[navList.length - 1].date
+  // const cagrs = []
+  // for (let i = 0, len = navList.length; i < len; i++) {
+  //   const buyNAV = navList[i].nav;
+  //   const buyDate = navList[i].date;
+  //   let sellDate = new Date(buyDate);
+  //   sellDate.setDate(buyDate.getDate() + daysInWindow)
+  //   // if sellDate is greater than latest nav date, exit the loop
+  //   if (sellDate > latestNAVDate) break
 
-    // if buyDate is older than last date for which NAV is available, exit the loop
-    if (buyDate < new Date(earliestNavDate)) break
+  //   const sellItem = navList.find(i => i.date >= sellDate)
+  //   if (sellItem) {
+  //     const sellNAV = sellItem.nav
+  //     let cagr = calculateCagr(buyNAV, sellNAV, windowYears)
+  //     cagrs.push({ buyDate, buyNAV, sellDate, sellNAV, cagr })
+  //     // // cagrs.push({ buyDate: buyDateStr, sellDate: sellDateStr, cagr })
+  //     // // cagrs.push([windowYears, buyDateStr, sellDateStr, cagr])
+  //     // cagrs.push([buyDateStr, sellDateStr, cagr])
+  //   }
+  // }
 
-    if (navsMap[buyDateStr] > 0) {
-      let cagr = calculateCagr(navsMap[buyDateStr], navsMap[sellDateStr], windowYears)
-      // cagrs.push({ buyDate: buyDateStr, sellDate: sellDateStr, cagr })
-      // cagrs.push([windowYears, buyDateStr, sellDateStr, cagr])
-      cagrs.push([buyDateStr, sellDateStr, cagr])
+  // assume 250 NAV days in a year (actual is 240-241)
+  const daysInWindow = windowYears * 250
+  const cagrs = []
+  const startIndex = navs.findIndex(n => n.date >= startDate)
+  if (startIndex < 0) return cagrs
+
+  const endIndex = navs.length - daysInWindow
+
+  try {
+    for (let i = startIndex; i <= endIndex; i++) {
+      const buyNAV = navs[i].nav;
+      const buyDate = navs[i].date;
+
+      const sellItem = navs[i + daysInWindow]
+      if (sellItem) {
+        const sellNAV = sellItem.nav
+        const sellDate = sellItem.date
+        let cagr = calculateCagr(buyNAV, sellNAV, windowYears)
+        // cagrs.push({ buyDate, buyNAV, sellDate, sellNAV, cagr })
+        cagrs.push([buyDate, buyNAV, sellDate, sellNAV, cagr])
+      }
     }
-  }
-  return cagrs
-}
-
-
-function refreshRollingReturns(funds) {
-  const opDir = DATA_DIR+'/rolling-returns'
-  if (!fs.existsSync(opDir)){
-    fs.mkdirSync(opDir, { recursive: true });
+  } catch (error) {
+    console.log(opts.fund)
+    console.log(startIndex)
+    throw error
   }
 
-  // calculate rolling returns for different windows once and store for use for further stats
-  funds.forEach((fund, i) => {
-    log.debug('rolling-returns remaining:', (funds.length - i), ` calculating for: ${fund.code} ${fund.name}`)
-    // const fundRRData = {
-    //   nav: {
-    //     min: fmtNum(Math.min(...navValues)),
-    //     max: fmtNum(Math.max(...navValues)),
-    //     // avg: fmtNum(navValues.reduce((acc, item) => (acc + item), 0) / navValues.length),
-    //     avg: fmtNum(calculateAverage(navValues)),
-    //   },
-    // }
-
-    let navsMap = {};
-    fs.readFileSync(`${DATA_DIR}/navs/${fund.code}.csv`, 'utf-8').split('\n').slice(1).forEach(line => {
-      const [date, nav] = line.split(',')
-      navsMap[date] = +nav
-    });
-
-    let rollingReturns = {};
-    ROLLING_RETURNS_WINDOWS.forEach(years => {
-      rollingReturns[`${years}`] = calculateRollingReturns(navsMap, years)
-      // rollingReturns[`${years}`] = {}
-    });
-
-    const fundRRData = {
-      nav: {
-        count: Object.keys(navsMap).length,
-        earliestDate: Object.keys(navsMap)[Object.keys(navsMap).length - 1],
-        latestDate: Object.keys(navsMap)[0],
-      },
-      returns: rollingReturns,
-    }
-    fs.writeFileSync(`${opDir}/${fund.code}.json`, JSON.stringify(fundRRData, 0, 1))
-  })
-  console.log({ loopCount })
+  return cagrs;
 }
+
 
 
 function calculateRanks(funds, fundRollingReturns) {
@@ -753,22 +601,40 @@ async function main() {
   const start = new Date()
 
   const steps = {
-    REFRESH_FUNDS_LIST: true,
-    REFRESH_NAVS: true,
-    REFRESH_ROLLING_RETURNS: true,
-    REFRESH_STATS: true,
-    REFRESH_REPORT : true,
+    // REFRESH_FUNDS_LIST: true,
+    // REFRESH_NAVS: true,
+    // REFRESH_ROLLING_RETURNS: true,
+    // REFRESH_STATS: true,
+    // REFRESH_REPORT : true,
+  }
+
+  if (!fs.existsSync(DATA_DIR)){
+    fs.mkdirSync(DATA_DIR, { recursive: true });
   }
 
   if (steps.REFRESH_FUNDS_LIST) {
-    log.info('Refreshing funds data...')
-    await refreshFundsList();
+    log.info(`Downloading www.amfiindia.com/spages/NAVOpen.txt`)
+    // NOTE: https://www.amfiindia.com/nav-history-download
+    const amfiData = await http('https://www.amfiindia.com/spages/NAVOpen.txt')
+    if (amfiData.status === 200) {
+      // log.info(amfiData)
+      fs.writeFileSync(DATA_DIR+'/NAVOpen.txt', amfiData.body)
+      log.info(`- Saved NAVOpen.txt`)
+    }
+
+    log.info('Parsing raw funds data')
+    let fundsData = parseAMFIFunds(fs.readFileSync(DATA_DIR+'/NAVOpen.txt', 'utf-8'))
+    log.info('- Funds count:', fundsData.funds.length)
+    fs.writeFileSync(DATA_DIR+'/funds-all.json', JSON.stringify(fundsData, null, 2))
+    log.info(`- Saved funds-all.json`)
   }
 
-  log.info('Filtering funds...')
-  const { funds } = JSON.parse(fs.readFileSync(DATA_DIR+'/funds-data.json', 'utf-8'))
 
+  const { funds, categories } = JSON.parse(fs.readFileSync(DATA_DIR+'/funds-all.json', 'utf-8'))
+
+  log.info('Filtering funds...')
   let selectedFunds = funds
+  log.info('- All funds count:', selectedFunds.length)
   selectedFunds = selectedFunds.filter(fund => !fund.name.match(/idcw/i))
   selectedFunds = selectedFunds.filter(fund => !fund.name.match(/dividend/i))
   selectedFunds = selectedFunds.filter(fund => !fund.name.match(/Income Distribution cum Capital Withdrawal/i))
@@ -792,25 +658,49 @@ async function main() {
 
 
   if (steps.REFRESH_NAVS) {
-    log.info('Refreshing NAVs for selected funds...');
-    const navStart = new Date();
     await refreshNavs(selectedFunds);
-    log.info(`- Finished fetching NAVs in ${(new Date() - navStart)/1000} s`);
   }
 
 
+  // selectedFunds = selectedFunds.slice(0, 5)
+  // selectedFunds = selectedFunds.filter(f => f.code==='100872')
+  console.log(selectedFunds.length)
+
+  selectedFunds.forEach((fund, i) => {
+    // console.log(fund)
+    // log.debug('rolling-returns remaining:', (selectedFunds.length - i), ` calculating for: ${fund.code} ${fund.name}`)
+    console.log('Processing fund:', i+1, '/', selectedFunds.length, fund.code, fund.category, fund.name)
+    const navs = fs.readFileSync(`${DATA_DIR}/navs/${fund.code}.csv`, 'utf-8').split('\n').slice(1).reverse().map(line => {
+      const [date, nav] = line.split(',')
+      return { date: new Date(date), nav: +nav }
+    });
+    // console.log(navs)
+
+    fund.navCount = navs.length;
+    fund.oldestNAVDate = navs[0].date;
+    fund.currentNAV = navs[navs.length - 1].nav;
+
+    let startDate = new Date('2015-01-01');
+    let rollingReturns = {};
+    ROLLING_RETURNS_WINDOWS.forEach((windowYears) => {
+      rollingReturns[`${windowYears}`] = calculateRollingReturns({ fund, navs, windowYears, startDate })
+    });
+    // console.log(rollingReturns)
+    fs.writeFileSync(`${DATA_DIR}/rolling-returns/${fund.code}.json`, JSON.stringify(rollingReturns));
+    fund.rollingReturns = {};
+  })
+
+  fs.writeFileSync(`${DATA_DIR}/test.json`, JSON.stringify(funds, null, 2));
+
+
   if (steps.REFRESH_ROLLING_RETURNS) {
-    log.info('Calculating rolling returns...')
-    const rrStart = new Date();
     refreshRollingReturns(selectedFunds)
-    log.info(`- Finished calculating rolling returns in ${(new Date() - rrStart)/1000} s`);
   }
 
   if (steps.REFRESH_STATS) {
     log.info('Calculating stats...')
     refreshStats(selectedFunds)
   }
-
 
   // const stats = JSON.parse(fs.readFileSync(`${DATA_DIR}/fund-stats.json`))
   // const funds = filterFunds(master.funds)
@@ -823,7 +713,6 @@ async function main() {
     const stats = JSON.parse(fs.readFileSync(`${DATA_DIR}/fund-stats.json`))
     fs.writeFileSync(`${DATA_DIR}/fund-stats.csv`, generateReportCsv(stats))
   }
-
 
   log.info(`Completed in ${(new Date() - start)/1000} s`)
 

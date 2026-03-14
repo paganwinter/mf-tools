@@ -2,7 +2,9 @@
 
 Utility to screen Indian Mutual Funds.
 
-https://paganwinter.github.io/mf-tools/screen.html
+- https://paganwinter.github.io/mf-tools/screen-v2
+- https://paganwinter.github.io/mf-tools/screen
+
 
 - Produces Average Rolling Returns for 1,2,3,..10 year windows for selected funds.
 - Allows filtering funds by type or name.

@@ -12,7 +12,8 @@
   <script type="text/babel" data-plugins="transform-modules-umd" data-presets="react" data-type="module"></script>
 
   <!-- <script src="https://code.highcharts.com/highcharts.js"> </script> -->
-   <script src="https://code.highcharts.com/stock/highstock.js"></script>
+   <!-- <script src="https://code.highcharts.com/stock/highstock.js"></script> -->
+   <script src="highstock.js"></script>
 <style>
 body {
   font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
@@ -838,6 +839,7 @@ function App() {
   const [message, setMessage] = React.useState('');
 
   const [searchText, setSearchText] = React.useState('');
+  const [filterQuery, setFilterQuery] = React.useState('');
   const [searchCategories, setSearchCategories] = React.useState([]);
   const [favFundsOnly, setFavFundsOnly] = React.useState(false);
 
@@ -913,9 +915,24 @@ function App() {
     const fundsOlderThanDate = new Date(fundsOlderThan)
 
     let filtered = funds.filter(fund => {
+      // console.log('>>', fund)
       if (favFundsOnly && !fund.fav) return false
 
+      if (searchCategories.length > 0) {
+        if (!searchCategories.includes(fund.category)) return false
+      }
+
       if (fund.stats && fund.stats.oldestNAVDate > fundsOlderThanDate) return false
+
+      if (filterQuery) {
+        try {
+          const filterFunc = new Function('fund', `return ${filterQuery}`);
+          if (!filterFunc(fund)) return false
+        } catch (error) {
+          console.error('Error evaluating filter query:', error);
+          return false
+        }
+      }
 
       if (searchText) {
         // const searchTokens = searchText.split(' ').filter(t => t.trim());
@@ -925,9 +942,6 @@ function App() {
         if (!searchTarget.match(searchRegex)) return false
       }
 
-      if (searchCategories.length > 0) {
-        if (!searchCategories.includes(fund.category)) return false
-      }
       return true
     });
     // setMessage('');
@@ -943,7 +957,7 @@ function App() {
     }
 
     return filtered;
-  }, [funds, searchCategories, searchText, favFundsOnly, rrWindow]);
+  }, [funds, searchCategories, searchText, filterQuery, favFundsOnly, rrWindow]);
 
   // setMessage('Filtering funds...');
   // const filteredFunds = funds.filter(fund => {
@@ -962,12 +976,44 @@ function App() {
   // const filteredCategories = Array.from(new Set(filteredFunds.map(fund => fund.category)));
   // console.log({filteredCategories})
 
+  function printFundSchema(fund) {
+    if (fund) {
+      const fundObj = {
+        ...fund,
+        stats: {
+          ...fund.stats,
+          navs: undefined, // hide navs for brevity
+        }
+      }
+      if (fundObj.stats?.rollingReturns) {
+        Object.keys(fundObj.stats.rollingReturns).forEach(window => {
+          fundObj.stats.rollingReturns[window].values = undefined; // hide rolling return values for brevity
+        })
+      }
+      return JSON.stringify(fundObj, null, 2)
+    }
+    return ''
+  }
+
+
   return (
     <div>
       {/*[0, 0.5, 1].map(value => {
         return <div key={value} style={{width: 200, height: 50, border: '1px solid #888', background: colorGradient(value, COLOR_LOW, COLOR_HIGH)}}>{colorGradient(value, COLOR_LOW, COLOR_HIGH)}</div>
       })*/}
       <div>
+        <details>
+          <summary>Instructions</summary>
+          <ul>
+            <li>Select categories and/or enter search text to filter funds</li>
+            <li>Optionally enter a filter query to apply custom filters (e.g., fund.category)</li>
+            <li>Click "Refresh Data" to fetch NAVs and calculate stats for the filtered funds</li>
+            <li>Use the checkboxes and inputs to further filter and analyze the funds</li>
+            <li>Hover over the charts to see details, and use the range selector to zoom in on specific time periods</li>
+            <li>The color intensity of the fund names in the charts indicates their relative performance within the selected window (darker green means better performance)</li>
+          </ul>
+        </details>
+
         <form>
           <select multiple size="8" style={{width: '100%'}} onChange={e => {
             const selectedCategories = Array.from(e.target.selectedOptions, option => option.value).filter(v => v);
@@ -980,12 +1026,23 @@ function App() {
             ))}
           </select>
           <br />
-          <input type="search" style={{width: '100%'}} placeholder="Search funds..." onKeyUp={e => {
+          <input type="search" style={{width: '100%'}} placeholder="Search text" onKeyUp={e => {
             const searchText = e.target.value.toLowerCase();
             console.log('searchText:', searchText);
             setSearchText(searchText);
-          }} onChange={e => { if (e.target.value === '') { setSearchText(searchText); } }} />
+          }} onChange={e => { if (e.target.value === '') { setSearchText(searchText); } }} /><br />
+
+          <textarea style={{width: '100%'}} placeholder="Filter query (e.g., fund.name.includes('ABC'))" onChange={e => {
+            const value = e.target.value.trim()
+            if (value.endsWith(';') || value.endsWith('\n')) setFilterQuery(value);
+          }}></textarea>
           <br />
+
+          <details>
+            <summary>Sample fund object</summary>
+            <pre>{printFundSchema(filteredFunds[0])}</pre>
+          </details>
+
           <label>
             Favourites Only:
             <input type="checkbox" onChange={(e) => {
@@ -994,6 +1051,7 @@ function App() {
           </label>
           <br />
           <hr />
+
           {/*
           <label htmlFor="directOnly">
             Direct Plans Only: <input type="checkbox" id="directOnly" name="directOnly" value="directOnly" checked />
