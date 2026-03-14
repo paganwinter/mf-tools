@@ -1215,7 +1215,7 @@ function App() {
           <thead>
             <tr>
               {/* <th>Category</th> */}
-              <th>Fund</th>
+              <th style={{}}>Fund</th>
               <th>NAVs</th>
               <th style={{cursor: 'pointer'}} onClick={() => {
                   setFunds((prevFunds) => {
@@ -1262,7 +1262,7 @@ function App() {
               <tr key={fund.code}>
                 {/* <td style={{fontSize: 10}}>{fund.category}</td> */}
                 <td>
-                  <div style={{minWidth: 150}}>
+                  <div style={{minWidth: 300}}>
                     <input type="checkbox" checked={!!fund.fav} onChange={(e) => {
                       const favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}');
                       localStorage.setItem('favFunds', JSON.stringify({...favFunds, [fund.code]: e.target.checked}));
