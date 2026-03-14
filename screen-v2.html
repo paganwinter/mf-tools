@@ -926,7 +926,7 @@ function App() {
 
       if (filterQuery) {
         try {
-          const filterFunc = new Function('fund', `return ${filterQuery}`);
+          const filterFunc = new Function('f', `return ${filterQuery}`);
           if (!filterFunc(fund)) return false
         } catch (error) {
           console.error('Error evaluating filter query:', error);
@@ -996,6 +996,46 @@ function App() {
   }
 
 
+  const quickFilters = [
+    {
+      label: '5 year Rolling Returns > 15%',
+      query: 'f.stats?.rollingReturns?.[5]?.avg > 15;',
+    },
+    {
+      label: 'Standard Deviation < 10%',
+      query: 'f.stats?.stdev < 10;',
+    },
+    {
+      label: 'SIP Gain > 50k',
+      query: 'f.stats?.sipReturns?.gain > 50000;',
+    },
+    {
+      label: 'Large Cap or Nifty 50 / Sensex',
+      query: 'f.category.match(/large cap/i) || f.name.match(/(nifty\\s*50\\s|sensex)/i);',
+    },
+    {
+      label: 'Large Cap or Sensex / Nifty 50 / Nifty Next 50 / Nifty 100',
+      query: 'f.category.match(/large cap/i) || f.name.match(/(sensex|nifty\\s*50\\s|nifty\\s*next\\s*50\\s|nifty\\s*100\\s)/i);',
+    },
+    {
+      label: 'Large and Mid Cap or Nifty 200',
+      query: 'f.category.match(/large.*mid.*cap/i) || f.name.match(/(nifty\\s*200\\s)/i);',
+    },
+    {
+      label: 'Mid Cap or Nifty Midcap 150',
+      query: 'f.category.match(/-\\s*mid.*cap/i) || f.name.match(/(nifty\\s*midcap\\s*150\\s)/i);',
+    },
+    {
+      label: 'Small Cap or Nifty Smallcap 250',
+      query: 'f.category.match(/small.*cap/i) || f.name.match(/(nifty\\s*smallcap\\s*250\\s)/i);',
+    },
+    {
+      label: 'Multi Cap or Nifty 500',
+      query: 'f.category.match(/multi.*cap/i) || f.name.match(/(nifty\\s*500\\s)/i);',
+    },
+  ]
+
+
   return (
     <div>
       {/*[0, 0.5, 1].map(value => {
@@ -1004,17 +1044,27 @@ function App() {
       <div>
         <details>
           <summary>Instructions</summary>
-          <ul>
-            <li>Select categories and/or enter search text to filter funds</li>
-            <li>Optionally enter a filter query to apply custom filters (e.g., fund.category)</li>
-            <li>Click "Refresh Data" to fetch NAVs and calculate stats for the filtered funds</li>
-            <li>Use the checkboxes and inputs to further filter and analyze the funds</li>
-            <li>Hover over the charts to see details, and use the range selector to zoom in on specific time periods</li>
-            <li>The color intensity of the fund names in the charts indicates their relative performance within the selected window (darker green means better performance)</li>
-          </ul>
+          <pre>{`
+- Select a list of funds to compare by doing any of the below
+  - Select one or more from Categories
+  - Use text (regex allowed) to search by fund code, category, name
+  - Use JS expression to filter by fund properties (eg. f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))
+  - Show only favourite funds
+- Once the list is filtered
+  - Click "Refresh Data" to fetch NAVs and calculate stats for the filtered funds
+- Once data is refreshed, use the below to further filter funds or calculate custom stats
+  - Use "Funds older than" to filter funds by earliest NAV date
+  - Use Rolling Returns Stats from to calculate rolling returns AFTER a certain date
+  - Use Rolling Returns Window to sort by returns for a specific window and display chart for that window
+  - Use Rank Threshold to limit displaying only the top x funds in the charts
+  - Use SIP amount and start date to compute SIP returns for the filtered funds
+  - Click "Refresh Data" again
+`}
+          </pre>
         </details>
 
         <form>
+          <label>Category:</label><br />
           <select multiple size="8" style={{width: '100%'}} onChange={e => {
             const selectedCategories = Array.from(e.target.selectedOptions, option => option.value).filter(v => v);
             console.log('selectedCategories:', selectedCategories);
@@ -1026,17 +1076,34 @@ function App() {
             ))}
           </select>
           <br />
+
+          <label>Text Search (regex allowed):</label><br />
           <input type="search" style={{width: '100%'}} placeholder="Search text" onKeyUp={e => {
             const searchText = e.target.value.toLowerCase();
             console.log('searchText:', searchText);
             setSearchText(searchText);
-          }} onChange={e => { if (e.target.value === '') { setSearchText(searchText); } }} /><br />
+          }} /><br />
 
-          <textarea style={{width: '100%'}} placeholder="Filter query (e.g., fund.name.includes('ABC'))" onChange={e => {
+          <label>Filter query:</label><br />
+          <textarea id="filter-query" style={{width: '100%'}} placeholder="Filter query (e.g., f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))" onChange={e => {
             const value = e.target.value.trim()
             if (value.endsWith(';') || value.endsWith('\n')) setFilterQuery(value);
-          }}></textarea>
+          }}>{filterQuery}</textarea>
           <br />
+
+          <details>
+            <summary>Quick Filters</summary>
+            <div>
+              {quickFilters.map((filter, index) => (
+                <button key={index} onClick={(e) => {
+                  document.getElementById('filter-query').value = filter.query;
+                  setFilterQuery(filter.query);
+                  // prevent default to avoid form submission
+                  e.preventDefault();
+                }} style={{marginRight: 10, marginBottom: 10}}>{filter.label}</button>
+              ))}
+            </div>
+          </details>
 
           <details>
             <summary>Sample fund object</summary>
@@ -1067,7 +1134,7 @@ function App() {
         <br />
         <br />
 
-        <label>RR Stats from: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></label>
+        <label>Rolling Returns Stats from: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></label>
         <br />
         {/*
         RR Window:
@@ -1083,7 +1150,7 @@ function App() {
         </select>
         */}
         <div>
-          RR Window: {ROLLING_RETURNS_WINDOWS.map(years => {
+          Rolling Returns Window: {ROLLING_RETURNS_WINDOWS.map(years => {
             return <label key={years}><input type="radio" checked={years === rrWindow} onChange={e => {
               if (e.target.checked) setRRWindow(years)
             }} />{years} years</label>
@@ -1091,7 +1158,7 @@ function App() {
         </div>
 
         <label>
-          Rank threshold: <input type="number" value={rankThreshold} onChange={(e) => {
+          Rank threshold (top x funds to display in charts): <input type="number" value={rankThreshold} onChange={(e) => {
             const rank = e.target.value ? parseInt(e.target.value) : null;
             setRankThreshold(rank);
             // drawChart({ funds: filteredFunds, years: rrWindow, rankThreshold: rank });
