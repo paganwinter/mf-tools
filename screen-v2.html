@@ -1086,7 +1086,7 @@ function App() {
           }} /><br />
 
           <label>Filter query:</label><br />
-          <textarea id="filter-query" defaultValue={filterQuery} style={{width: '100%'}} placeholder="Filter query (e.g., f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))" onChange={e => {
+          <textarea id="filter-query" defaultValue={filterQuery} cols="" rows="4" style={{width: '100%'}} placeholder="Filter query (e.g., f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))" onChange={e => {
             const value = e.target.value.trim()
             if (value.endsWith(';') || value.endsWith('\n')) setFilterQuery(value);
           }}></textarea>
