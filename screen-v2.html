@@ -386,6 +386,7 @@ function getMonthEndNavs(navs) {
 
 function fmtNum(n, dec = 2) {
   if (typeof n === 'undefined') return undefined
+  if (n === '') return undefined
   return +n.toFixed(dec)
 }
 
@@ -1085,10 +1086,10 @@ function App() {
           }} /><br />
 
           <label>Filter query:</label><br />
-          <textarea id="filter-query" style={{width: '100%'}} placeholder="Filter query (e.g., f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))" onChange={e => {
+          <textarea id="filter-query" defaultValue={filterQuery} style={{width: '100%'}} placeholder="Filter query (e.g., f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))" onChange={e => {
             const value = e.target.value.trim()
             if (value.endsWith(';') || value.endsWith('\n')) setFilterQuery(value);
-          }}>{filterQuery}</textarea>
+          }}></textarea>
           <br />
 
           <details>
@@ -1199,8 +1200,11 @@ function App() {
 
       <div>
         <details>
-          <summary>Selected Funds</summary>
-          <textarea readOnly cols="150" rows="20" value={[...filteredFunds].sort((a, b) => (a.category > b.category ? 1 : -1)).map(fund => `[${fund.category}] ${fund.name} (${fund.code})`).join('\n')} />
+          <summary>Filtered Funds (CSV)</summary>
+          <textarea readOnly cols="150" rows="20" value={[...filteredFunds].sort((a, b) => (a.category > b.category ? 1 : -1)).map(fund => {
+            // return `[${fund.category}] ${fund.name} (${fund.code})`
+            return `"${fund.category}","${fund.code}","${fund.name}",${fmtNum(fund.stats?.stdev) ?? ''},${fmtNum(fund.stats?.sipReturns?.currentValue) ?? ''},${ROLLING_RETURNS_WINDOWS.map(years => fmtNum(fund.stats?.rollingReturns?.[years]?.avg) ?? '').join(',')}`
+          }).join('\n')} />
         </details>
       </div>
       <div>
@@ -1226,7 +1230,7 @@ function App() {
                     })
                     return sortedFunds
                   })
-                }}>StDev</th>
+                }}>StdDev</th>
                 <th></th>
                 {ROLLING_RETURNS_WINDOWS.map(years => (
                 <th key={years} style={{cursor: 'pointer'}} onClick={() => {
