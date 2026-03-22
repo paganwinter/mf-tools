@@ -13,212 +13,28 @@
 
   <!-- <script src="https://code.highcharts.com/highcharts.js"> </script> -->
    <!-- <script src="https://code.highcharts.com/stock/highstock.js"></script> -->
-  <script src="highstock.js"></script>
-  <style>
-  :root{
-    --bg:#f6f7f9;
-    --card:#ffffff;
-    --muted:#7a8796;
-    --accent:#2b6cb0;
-    --accent-cta:#1f8dd6;
-    --border:#e3e8ee;
-    --success:#2ea44f;
-    --danger:#e55353;
-    --radius:8px;
-    --shadow: 0 6px 18px rgba(34,44,60,0.06);
-    --max-width:1200px;
-    --gap:14px;
-    --mono: "Segoe UI Mono", "SFMono-Regular", Menlo, Monaco, monospace;
-  }
-
-  * { box-sizing: border-box; }
-  html,body,#app { height:100%; }
-  body {
-    background: var(--bg);
-    color: #222;
-    font-size: 14px;
-    line-height: 1.45;
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
-    padding: 0;
-    margin: 0;
-    display: block;
-    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  }
-  details {
-    border: 1px solid #eee;
-  }
-  details summary {
-    padding: 3px 5px;
-    cursor: pointer;
-    user-select: none;
-    background: #f8f8f8;
-  }
-
-  /* App container */
-  .app-container{
-    width: 100%;
-    max-width: var(--max-width);
-    background: transparent;
-    /* margin: 28px auto; */
-    /* padding: 0 16px; */
-  }
-
-  /* Make wide tables pan to the edges on small screens by offsetting container padding */
-  .table-wrapper {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    margin-left: -16px;
-    margin-right: -16px;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  /* Card */
-  .controls-card {
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 10px;
-    box-shadow: var(--shadow);
-    margin-bottom: var(--gap);
-    border: 1px solid var(--border);
-  }
-
-  /* Top controls layout */
-  .controls {
-    /* display: grid; */
-    grid-template-columns: 1fr 320px;
-    gap: 16px;
-    align-items:start;
-  }
-
-  /* Form controls */
-  .controls label {
-    display:block;
-    margin-bottom: 0px;
-    color:var(--muted);
-    font-size:12px;
-  }
-  .category-select,
-  .search-input,
-  .filter-query,
-  input[type="date"],
-  input[type="number"],
-  input[type="search"],
-  select,
-  textarea {
-    width:100%;
-    padding:8px 10px;
-    border:1px solid var(--border);
-    border-radius:6px;
-    background: #fff;
-    font-size:13px;
-    outline:none;
-    transition: box-shadow .12s, border-color .12s;
-  }
-  .category-select:focus,
-  .search-input:focus,
-  .filter-query:focus,
-  input[type="search"]:focus,
-  textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 4px 14px rgba(43,108,176,0.08);
-  }
-
-  /* Buttons */
-  button {
-    padding:8px 12px;
-    border-radius:6px;
-    border:1px solid transparent;
-    background: #eef4fb;
-    color: #1b3b57;
-    cursor:pointer;
-    margin-right:8px;
-    margin-bottom:8px;
-    font-size:13px;
-  }
-  button:hover { filter:brightness(.98); }
-  button.quick-filter-btn { background:#fff; border:1px solid var(--border); }
-  button.btn.primary {
-    background: linear-gradient(180deg,var(--accent-cta),var(--accent));
-    color:#fff;
-    border-color: rgba(0,0,0,0.06);
-    box-shadow: 0 6px 18px rgba(31,141,214,0.12);
-  }
-
-  /* Message / charts area */
-  #chart-rr-over-time,
-  #chart-rr-distribution,
-  #chart-sip-returns {
-    background: #fff;
-    border-radius: 8px;
-    padding: 12px;
-    border:1px solid var(--border);
-    box-shadow: var(--shadow);
-    margin-top: 10px;
-  }
-
-  /* CSV area */
-  textarea[readOnly] {
-    font-family: var(--mono);
-    background:#fff;
-    border-radius:6px;
-    border:1px solid var(--border);
-    padding:10px;
-  }
-
-  /* Table */
-  .funds-table {
-    width:100%;
-    border-collapse: separate;
-    border-spacing:0;
-    background: #fff;
-    border:1px solid var(--border);
-    border-radius:8px;
-    overflow:hidden;
-    box-shadow: var(--shadow);
-  }
-  .funds-table thead th {
-    background: linear-gradient(180deg,#fbfdff,#f5f8fb);
-    color:#233544;
-    font-weight:600;
-    font-size:13px;
-    padding:10px 12px;
-    text-align:left;
-    border-bottom:1px solid var(--border);
-  }
-  .funds-table tbody tr:nth-child(even) { background:#fcfdfe; }
-  .funds-table td { padding:6px 6px; vertical-align:top; border-bottom:1px solid var(--border); }
-  .fund-name { font-weight:600; font-size:15px; margin-bottom:6px; }
-  .fund-meta { color:var(--muted); font-size:12px; }
-
-  /* Small helpers */
-  .kv { font-size:12px; color:var(--muted); }
-  .controls-summary { font-size:13px; color:var(--muted); margin-top:6px; }
-
-  /* Responsive */
-  @media (max-width:980px){
-    .controls { grid-template-columns: 1fr; }
-    #chart-rr-over-time, #chart-rr-distribution, #chart-sip-returns { margin-top:14px; }
-  }
-  /* Mobile specific tweaks */
-  @media (max-width:600px) {
-    /* body { padding: 12px; } */
-    .controls-card { padding: 3px; }
-    .controls { gap: 10px; }
-    .controls label { font-size: 13px; }
-    .category-select { max-height: 220px; }
-    .search-input, .category-select, .filter-query { font-size: 15px; padding: 3px; }
-    button { padding: 12px 14px; font-size: 15px; }
-    button.btn.primary { width: 100%; display: block; }
-    button.quick-filter-btn { display: inline-block; width: auto; margin-bottom: 8px; }
-    .table-wrapper { overflow: auto; -webkit-overflow-scrolling: touch; }
-    .funds-table { min-width: 900px; }
-    details summary { padding: 0px 6px; font-weight: 600; }
-    .fund-meta { font-size: 11px; }
-    .controls-summary { font-size: 12px; }
-  }
-  </style>
+   <script src="highstock.js"></script>
+<style>
+body {
+  font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+table {
+  border: 1px solid #ccc;
+  border-collapse: collapse;
+}
+td, th {
+  border: 1px solid #ccc;
+  padding: 6px;
+}
+th {
+  background: #eee;
+}
+details summary {
+  cursor: pointer;
+}
+</style>
 </head>
 
 <body>
@@ -1132,19 +948,14 @@ function App() {
     // setMessage('');
     console.log('filtered:', filtered)
 
-    // sort: put Equity categories first, then sort by rolling returns (if rrWindow set)
-    filtered = filtered.sort((a, b) => {
-      const aIsEquity = (a.category || '').toLowerCase().startsWith('equity');
-      const bIsEquity = (b.category || '').toLowerCase().startsWith('equity');
-      if (aIsEquity !== bIsEquity) return aIsEquity ? -1 : 1;
-      if (rrWindow) {
-        const aRR = a.stats?.rollingReturns[rrWindow]?.avg || 0;
-        const bRR = b.stats?.rollingReturns[rrWindow]?.avg || 0;
-        return bRR - aRR;
-      }
-      // fallback sort by name
-      return (a.name || '').localeCompare(b.name || '');
-    })
+    // sort
+    if (rrWindow) {
+      filtered = filtered.sort((a, b) => {
+        const aRR = a.stats?.rollingReturns[rrWindow]?.avg || 0
+        const bRR = b.stats?.rollingReturns[rrWindow]?.avg || 0
+        return bRR - aRR
+      })
+    }
 
     return filtered;
   }, [funds, searchCategories, searchText, filterQuery, favFundsOnly, rrWindow]);
@@ -1188,18 +999,6 @@ function App() {
 
   const quickFilters = [
     {
-      label: 'All Equity funds',
-      query: 'f.category.match(/equity|other scheme/i);',
-    },
-    {
-      label: 'All Debt funds',
-      query: 'f.category.match(/debt/i);',
-    },
-    {
-      label: 'All Hybrid funds',
-      query: 'f.category.match(/hybrid/i);',
-    },
-    {
       label: '5 year Rolling Returns > 15%',
       query: 'f.stats?.rollingReturns?.[5]?.avg > 15;',
     },
@@ -1239,303 +1038,303 @@ function App() {
 
 
   return (
-    <div className="app-container">
+    <div>
       {/*[0, 0.5, 1].map(value => {
         return <div key={value} style={{width: 200, height: 50, border: '1px solid #888', background: colorGradient(value, COLOR_LOW, COLOR_HIGH)}}>{colorGradient(value, COLOR_LOW, COLOR_HIGH)}</div>
       })*/}
-      <div className="controls-card">
-        <details open>
-          <summary>Filters and Controls</summary>
-          <details>
-            <summary>Instructions</summary>
-            <pre>{`
-  - Select a list of funds to compare by doing any of the below
-    - Select one or more from Categories
-    - Use text (regex allowed) to search by fund code, category, name
-    - Use JS expression to filter by fund properties (eg. f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))
-    - Show only favourite funds
-  - Once the list is filtered
-    - Click "Refresh Data" to fetch NAVs and calculate stats for the filtered funds
-  - Once data is refreshed, use the below to further filter funds or calculate custom stats
-    - Use "Funds older than" to filter funds by earliest NAV date
-    - Use Rolling Returns Stats from to calculate rolling returns AFTER a certain date
-    - Use Rolling Returns Window to sort by returns for a specific window and display chart for that window
-    - Use Rank Threshold to limit displaying only the top x funds in the charts
-    - Use SIP amount and start date to compute SIP returns for the filtered funds
-    - Click "Refresh Data" again
-  `}
-            </pre>
-          </details>
+      <div>
+        <details>
+          <summary>Instructions</summary>
+          <pre>{`
+- Select a list of funds to compare by doing any of the below
+  - Select one or more from Categories
+  - Use text (regex allowed) to search by fund code, category, name
+  - Use JS expression to filter by fund properties (eg. f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))
+  - Show only favourite funds
+- Once the list is filtered
+  - Click "Refresh Data" to fetch NAVs and calculate stats for the filtered funds
+- Once data is refreshed, use the below to further filter funds or calculate custom stats
+  - Use "Funds older than" to filter funds by earliest NAV date
+  - Use Rolling Returns Stats from to calculate rolling returns AFTER a certain date
+  - Use Rolling Returns Window to sort by returns for a specific window and display chart for that window
+  - Use Rank Threshold to limit displaying only the top x funds in the charts
+  - Use SIP amount and start date to compute SIP returns for the filtered funds
+  - Click "Refresh Data" again
+`}
+          </pre>
+        </details>
 
-          <form className="controls">
-            <label>Category:</label><select className="category-select" multiple size="8" style={{width: '100%'}} onChange={e => {
-              const selectedCategories = Array.from(e.target.selectedOptions, option => option.value).filter(v => v);
-              console.log('selectedCategories:', selectedCategories);
-              setSearchCategories(selectedCategories);
-            }}>
-              <option value="">All</option>
-              {categories.map(category => (
-                <option key={category} value={category}>{category} ({funds.filter(fund => fund.category === category).length})</option>
-              ))}
-            </select>
-            <label>Text Search (regex allowed):</label>
-            <input className="search-input" type="search" style={{width: '100%'}} placeholder="Search text" onKeyUp={e => {
-              const searchText = e.target.value.toLowerCase();
-              console.log('searchText:', searchText);
-              setSearchText(searchText);
-            }} />
-
-            <label>Filter query:</label>
-            <textarea id="filter-query" className="filter-query" defaultValue={filterQuery} cols="" rows="4" style={{width: '100%'}} placeholder="Filter query (e.g., f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))" onChange={e => {
-              const value = e.target.value.trim()
-              if (value.endsWith(';') || value.endsWith('\n')) setFilterQuery(value);
-            }}></textarea>
-
-            <details>
-              <summary>Quick Filters</summary>
-              <div>
-                  {quickFilters.map((filter, index) => (
-                  <button key={index} className="quick-filter-btn" onClick={(e) => {
-                    document.getElementById('filter-query').value = filter.query;
-                    setFilterQuery(filter.query);
-                    // prevent default to avoid form submission
-                    e.preventDefault();
-                  }} style={{marginRight: 10, marginBottom: 10}}>{filter.label}</button>
-                ))}
-              </div>
-            </details>
-
-            <details>
-              <summary>Sample fund object</summary>
-              <pre>{printFundSchema(filteredFunds[0])}</pre>
-            </details>
-
-            <label>
-              Favourites Only:
-              <input type="checkbox" onChange={(e) => {
-                setFavFundsOnly(e.target.checked);
-              }} />
-            </label>
-
-            {/*
-            <label htmlFor="directOnly">
-              Direct Plans Only: <input type="checkbox" id="directOnly" name="directOnly" value="directOnly" checked />
-            </label><br />
-            <label htmlFor="growthOnly">
-              Growth Plans Only: <input type="checkbox" id="growthOnly" name="growthOnly" value="growthOnly" checked onChange={e => {
-                const growthOnly = e.target.checked;
-                console.log('growthOnly:', growthOnly);
-              }} />
-            </label><br />
-            */}
-          <label>Funds older than: <input type="date" value={fundsOlderThan} onChange={e => setFundsOlderThan(e.target.value)} /></label>
-          <hr />
-
-          <label>Rolling Returns Stats from: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></label>
-          {/*
-          RR Window:
-          <select style={{}} value={rrWindow} onChange={e => {
-            const years = e.target.value ? parseInt(e.target.value) : null;
-            setRRWindow(years);
-            // drawChart({ funds: filteredFunds, years, rankThreshold });
+        <form>
+          <label>Category:</label><br />
+          <select multiple size="8" style={{width: '100%'}} onChange={e => {
+            const selectedCategories = Array.from(e.target.selectedOptions, option => option.value).filter(v => v);
+            console.log('selectedCategories:', selectedCategories);
+            setSearchCategories(selectedCategories);
           }}>
-            <option value="">-</option>
-            {ROLLING_RETURNS_WINDOWS.map(years => (
-              <option key={years} value={years}>{years} years</option>
+            <option value="">All</option>
+            {categories.map(category => (
+              <option key={category} value={category}>{category} ({funds.filter(fund => fund.category === category).length})</option>
             ))}
           </select>
-          */}
+          <br />
+
+          <label>Text Search (regex allowed):</label><br />
+          <input type="search" style={{width: '100%'}} placeholder="Search text" onKeyUp={e => {
+            const searchText = e.target.value.toLowerCase();
+            console.log('searchText:', searchText);
+            setSearchText(searchText);
+          }} /><br />
+
+          <label>Filter query:</label><br />
+          <textarea id="filter-query" defaultValue={filterQuery} cols="" rows="4" style={{width: '100%'}} placeholder="Filter query (e.g., f.category.match(/large cap/i) || f.name.match(/(nifty\s*50\s|sensex)/i))" onChange={e => {
+            const value = e.target.value.trim()
+            if (value.endsWith(';') || value.endsWith('\n')) setFilterQuery(value);
+          }}></textarea>
+          <br />
+
           <details>
-            <summary>Rolling Returns Window:</summary>
-              {ROLLING_RETURNS_WINDOWS.map(years => {
-              return <label key={years}><input type="radio" checked={years === rrWindow} style={{ display: 'inline-block' }} onChange={e => {
-                if (e.target.checked) setRRWindow(years)
-              }} />{years} years</label>
-            })}
-            {/* <input type="range" /> */}
+            <summary>Quick Filters</summary>
+            <div>
+              {quickFilters.map((filter, index) => (
+                <button key={index} onClick={(e) => {
+                  document.getElementById('filter-query').value = filter.query;
+                  setFilterQuery(filter.query);
+                  // prevent default to avoid form submission
+                  e.preventDefault();
+                }} style={{marginRight: 10, marginBottom: 10}}>{filter.label}</button>
+              ))}
+            </div>
+          </details>
+
+          <details>
+            <summary>Sample fund object</summary>
+            <pre>{printFundSchema(filteredFunds[0])}</pre>
           </details>
 
           <label>
-            Rank threshold (top x funds to display in charts): <input type="number" value={rankThreshold} onChange={(e) => {
-              const rank = e.target.value ? parseInt(e.target.value) : null;
-              setRankThreshold(rank);
-              // drawChart({ funds: filteredFunds, years: rrWindow, rankThreshold: rank });
+            Favourites Only:
+            <input type="checkbox" onChange={(e) => {
+              setFavFundsOnly(e.target.checked);
             }} />
           </label>
-
-          <details>
-            <summary>SIP Returns</summary>
-            <label>SIP Amount: <input type="number" value={sipAmount} onChange={e => setSipAmount(parseInt(e.target.value))} /></label>
-            <label>SIP Start Date: <input type="date" value={sipStartDate} onChange={e => setSipStartDate(e.target.value)} /></label>
-          </details>
-
-          <button className="btn primary" onClick={(e) => {
-            e.preventDefault();
-            // getData(filteredFunds);
-            getData({ funds: filteredFunds, setFunds, rrWindow, rankThreshold, setMessage, startDate, sipStartDate, sipAmount })
-          }}>Refresh Data</button>
           <br />
           <hr />
 
-          </form>
-        </details>
+          {/*
+          <label htmlFor="directOnly">
+            Direct Plans Only: <input type="checkbox" id="directOnly" name="directOnly" value="directOnly" checked />
+          </label><br />
+          <label htmlFor="growthOnly">
+            Growth Plans Only: <input type="checkbox" id="growthOnly" name="growthOnly" value="growthOnly" checked onChange={e => {
+              const growthOnly = e.target.checked;
+              console.log('growthOnly:', growthOnly);
+            }} />
+          </label><br />
+          */}
+        <label>Funds older than: <input type="date" value={fundsOlderThan} onChange={e => setFundsOlderThan(e.target.value)} /></label>
+        <br />
+        <br />
+
+        <label>Rolling Returns Stats from: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></label>
+        <br />
+        {/*
+        RR Window:
+        <select style={{}} value={rrWindow} onChange={e => {
+          const years = e.target.value ? parseInt(e.target.value) : null;
+          setRRWindow(years);
+          // drawChart({ funds: filteredFunds, years, rankThreshold });
+        }}>
+          <option value="">-</option>
+          {ROLLING_RETURNS_WINDOWS.map(years => (
+            <option key={years} value={years}>{years} years</option>
+          ))}
+        </select>
+        */}
+        <div>
+          Rolling Returns Window: {ROLLING_RETURNS_WINDOWS.map(years => {
+            return <label key={years}><input type="radio" checked={years === rrWindow} onChange={e => {
+              if (e.target.checked) setRRWindow(years)
+            }} />{years} years</label>
+          })}
+        </div>
+
+        <label>
+          Rank threshold (top x funds to display in charts): <input type="number" value={rankThreshold} onChange={(e) => {
+            const rank = e.target.value ? parseInt(e.target.value) : null;
+            setRankThreshold(rank);
+            // drawChart({ funds: filteredFunds, years: rrWindow, rankThreshold: rank });
+          }} />
+        </label>
+        <br />
+        <br />
+
+        <label>SIP Amount: <input type="number" value={sipAmount} onChange={e => setSipAmount(parseInt(e.target.value))} /></label>
+        <br />
+        <label>SIP Start Date: <input type="date" value={sipStartDate} onChange={e => setSipStartDate(e.target.value)} /></label>
+        <br />
+
+        <button onClick={(e) => {
+          e.preventDefault();
+          // getData(filteredFunds);
+          getData({ funds: filteredFunds, setFunds, rrWindow, rankThreshold, setMessage, startDate, sipStartDate, sipAmount })
+        }}>Refresh Data</button>
+        <br />
+        <hr />
+
+        </form>
       </div>
 
-      <div className="display">
-        <div>{message}</div>
-        <details>
-          <summary>Rolling Returns</summary>
-          <div id="chart-rr-over-time" style={{height: 800}}></div>
-        </details>
-        <details>
-          <summary>Rolling Returns Distribution</summary>
-          <div id="chart-rr-distribution" style={{height: 600}}></div>
-        </details>
-        <details>
-          <summary>SIP Returns</summary>
-          <div id="chart-sip-returns" style={{height: 600}}></div>
-        </details>
+      <div>{message}</div>
+      <details>
+        <summary>Rolling Returns</summary>
+        <div id="chart-rr-over-time" style={{height: 800}}></div>
+      </details>
+      <details>
+        <summary>Rolling Returns Distribution</summary>
+        <div id="chart-rr-distribution" style={{height: 600}}></div>
+      </details>
+      <details>
+        <summary>SIP Returns</summary>
+        <div id="chart-sip-returns" style={{height: 600}}></div>
+      </details>
 
+      <div>
+        <details>
+          <summary>Filtered Funds (CSV)</summary>
+          <textarea readOnly cols="150" rows="20" value={[...filteredFunds].sort((a, b) => (a.category > b.category ? 1 : -1)).map(fund => {
+            // return `[${fund.category}] ${fund.name} (${fund.code})`
+            return `"${fund.category}","${fund.code}","${fund.name}",${fmtNum(fund.stats?.stdev) ?? ''},${fmtNum(fund.stats?.sipReturns?.currentValue) ?? ''},${ROLLING_RETURNS_WINDOWS.map(years => fmtNum(fund.stats?.rollingReturns?.[years]?.avg) ?? '').join(',')}`
+          }).join('\n')} />
+        </details>
+      </div>
+      <div>
+        <div>Count: {filteredFunds.length}</div>
         <div>
-          <details>
-            <summary>Filtered Funds (CSV)</summary>
-            <textarea readOnly cols="150" rows="20" value={[...filteredFunds].sort((a, b) => (a.category > b.category ? 1 : -1)).map(fund => {
-              // return `[${fund.category}] ${fund.name} (${fund.code})`
-              return `"${fund.category}","${fund.code}","${fund.name}",${fmtNum(fund.stats?.stdev) ?? ''},${fmtNum(fund.stats?.sipReturns?.currentValue) ?? ''},${ROLLING_RETURNS_WINDOWS.map(years => fmtNum(fund.stats?.rollingReturns?.[years]?.avg) ?? '').join(',')}`
-            }).join('\n')} />
-          </details>
+          RR Stats:
+          <label><input type="checkbox" checked={showRRMinMax} onChange={(e) => setShowRRMinMax(e.target.checked)} /> Min-Max</label>
+          <label><input type="checkbox" checked={showRRQuantile} onChange={(e) => setShowRRQuantile(e.target.checked)} /> Percentile</label>
         </div>
-        <div>
-          <div>Count: {filteredFunds.length}</div>
-          <div>
-            RR Stats:
-            <label><input type="checkbox" checked={showRRMinMax} onChange={(e) => setShowRRMinMax(e.target.checked)} /> Min-Max</label>
-            <label><input type="checkbox" checked={showRRQuantile} onChange={(e) => setShowRRQuantile(e.target.checked)} /> Percentile</label>
-          </div>
 
-          <div className="table-wrapper">
-          <table className="funds-table">
-            <thead>
-              <tr>
-                {/* <th>Category</th> */}
-                <th style={{}}>Fund</th>
-                <th>NAVs</th>
-                <th style={{cursor: 'pointer'}} onClick={() => {
-                    setFunds((prevFunds) => {
-                      const sortedFunds = [...prevFunds].sort((a, b) => {
-                        const aStdev = a.stats?.stdev || 0
-                        const bStdev = b.stats?.stdev || 0
-                        return aStdev - bStdev
-                      })
-                      return sortedFunds
-                    })
-                  }}>StdDev</th>
-                  <th></th>
-                  {ROLLING_RETURNS_WINDOWS.map(years => (
-                  <th key={years} style={{cursor: 'pointer'}} onClick={() => {
-                      setRRWindow(years);
-                      // drawChart({ funds: filteredFunds, years, rankThreshold });
-                      // setFunds((prevFunds) => {
-                      //   const sortedFunds = [...prevFunds].sort((a, b) => {
-                      //     const aRR = a.stats?.rollingReturns[years]?.avg || 0
-                      //     const bRR = b.stats?.rollingReturns[years]?.avg || 0
-                      //     return bRR - aRR
-                      //   })
-                      //   return sortedFunds
-                      // })
-                    }}>
-                    {years} RR
-                  </th>
-                ))}
-                <th onClick={e => {
+        <table>
+          <thead>
+            <tr>
+              {/* <th>Category</th> */}
+              <th style={{}}>Fund</th>
+              <th>NAVs</th>
+              <th style={{cursor: 'pointer'}} onClick={() => {
                   setFunds((prevFunds) => {
                     const sortedFunds = [...prevFunds].sort((a, b) => {
-                      const aSipReturns = a.stats?.sipReturns?.currentValue || 0
-                      const bSipReturns = b.stats?.sipReturns?.currentValue || 0
-                      return aSipReturns - bSipReturns
+                      const aStdev = a.stats?.stdev || 0
+                      const bStdev = b.stats?.stdev || 0
+                      return aStdev - bStdev
                     })
                     return sortedFunds
                   })
-                }}>SIP Returns</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredFunds.map(fund => (
-                <tr key={fund.code}>
-                  {/* <td style={{fontSize: 10}}>{fund.category}</td> */}
-                  <td>
-                    <div style={{minWidth: 300}}>
-                      <input type="checkbox" checked={!!fund.fav} onChange={(e) => {
-                        const favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}');
-                        localStorage.setItem('favFunds', JSON.stringify({...favFunds, [fund.code]: e.target.checked}));
-
-                        setFunds((prevFunds) => {
-                          const updatedFunds = prevFunds.map((f) => {
-                            if (f.code === fund.code) return { ...f, fav: e.target.checked }
-                            return f
-                          })
-                          return updatedFunds
-                        })
-                      }}/>{fund.name}</div>
-                    <div style={{fontSize: 12, color: '#aaa'}}>{fund.category} | code:{fund.code} | since:{fund.stats?.oldestNAVDate.toISOString().split('T')[0]}</div>
-                  </td>
-                  <td>
-                    <a href={`https://api.mfapi.in/mf/${fund.code}`} target="_blank">{fund.stats?.navCount}</a>
-                  </td>
-                  <td>
-                    {fmtNum(fund.stats?.stdev)}
-                  </td>
-                  <td>
-                    {(
-                      <>
-                        Average
-                        <div style={{fontSize: 10, color: '#444'}}>
-                          <div>Count</div>
-                          {showRRMinMax && <div>Min - Max</div>}
-                          {showRRQuantile && (
-                            <>
-                              <div>Med</div>
-                              <div>P50</div>
-                              <div>P25</div>
-                              <div>P10</div>
-                            </>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </td>
-                  {ROLLING_RETURNS_WINDOWS.map(years => (
-                    <td key={years} style={{backgroundColor: fund.stats?.rollingReturns[years]?.color}}>
-                      {fund.stats?.rollingReturns[years]?.avg && fund.stats.rollingReturns[years]?.avg.toFixed(1)}
-
-                      <div style={{fontSize: 10, color: '#444'}}>
-                        <div>{fund.stats?.rollingReturns?.[years]?.count > 0 && fund.stats?.rollingReturns?.[years]?.count}</div>
-                      </div>
-                      {showRRMinMax && fund.stats?.rollingReturns[years]?.count > 0 && (
-                        <div style={{fontSize: 10, color: '#444'}}>
-                          <div>{fund.stats.rollingReturns[years]?.min?.toFixed(0)} - {fund.stats?.rollingReturns[years]?.max?.toFixed(0)}</div>
-                        </div>
-                      )}
-                      {showRRQuantile && fund.stats?.rollingReturns[years]?.count > 0 && (
-                        <div style={{fontSize: 10, color: '#444'}}>
-                          <div>{fund.stats.rollingReturns[years]?.median.toFixed(1)}</div>
-                          <div>{fund.stats.rollingReturns[years]?.p50.toFixed(1)}</div>
-                          <div>{fund.stats.rollingReturns[years]?.p25.toFixed(1)}</div>
-                          <div>{fund.stats.rollingReturns[years]?.p10.toFixed(1)}</div>
-                        </div>
-                      )}
-                    </td>))}
-                  <td>
-                    <div>{fund.stats?.sipReturns?.currentValue && (+fund.stats.sipReturns.currentValue.toFixed(0)).toLocaleString('en-IN')}</div>
-                    <div style={{color: '#aaa', fontSize: 12}}>{fund.stats?.sipReturns?.investedValue && (+fund.stats.sipReturns.investedValue.toFixed(0)).toLocaleString('en-IN')}</div>
-                  </td>
-                </tr>
+                }}>StdDev</th>
+                <th></th>
+                {ROLLING_RETURNS_WINDOWS.map(years => (
+                <th key={years} style={{cursor: 'pointer'}} onClick={() => {
+                    setRRWindow(years);
+                    // drawChart({ funds: filteredFunds, years, rankThreshold });
+                    // setFunds((prevFunds) => {
+                    //   const sortedFunds = [...prevFunds].sort((a, b) => {
+                    //     const aRR = a.stats?.rollingReturns[years]?.avg || 0
+                    //     const bRR = b.stats?.rollingReturns[years]?.avg || 0
+                    //     return bRR - aRR
+                    //   })
+                    //   return sortedFunds
+                    // })
+                  }}>
+                  {years} RR
+                </th>
               ))}
-            </tbody>
-          </table>
-          </div>
-        </div>
+              <th onClick={e => {
+                setFunds((prevFunds) => {
+                  const sortedFunds = [...prevFunds].sort((a, b) => {
+                    const aSipReturns = a.stats?.sipReturns?.currentValue || 0
+                    const bSipReturns = b.stats?.sipReturns?.currentValue || 0
+                    return aSipReturns - bSipReturns
+                  })
+                  return sortedFunds
+                })
+              }}>SIP Returns</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {filteredFunds.map(fund => (
+              <tr key={fund.code}>
+                {/* <td style={{fontSize: 10}}>{fund.category}</td> */}
+                <td>
+                  <div style={{minWidth: 300}}>
+                    <input type="checkbox" checked={!!fund.fav} onChange={(e) => {
+                      const favFunds = JSON.parse(localStorage.getItem('favFunds') || '{}');
+                      localStorage.setItem('favFunds', JSON.stringify({...favFunds, [fund.code]: e.target.checked}));
+
+                      setFunds((prevFunds) => {
+                        const updatedFunds = prevFunds.map((f) => {
+                          if (f.code === fund.code) return { ...f, fav: e.target.checked }
+                          return f
+                        })
+                        return updatedFunds
+                      })
+                    }}/>{fund.name}</div>
+                  <div style={{fontSize: 12, color: '#aaa'}}>{fund.category} | code:{fund.code} | since:{fund.stats?.oldestNAVDate.toISOString().split('T')[0]}</div>
+                </td>
+                <td>
+                  <a href={`https://api.mfapi.in/mf/${fund.code}`} target="_blank">{fund.stats?.navCount}</a>
+                </td>
+                <td>
+                  {fmtNum(fund.stats?.stdev)}
+                </td>
+                <td>
+                  {(
+                    <>
+                      Average
+                      <div style={{fontSize: 10, color: '#444'}}>
+                        <div>Count</div>
+                        {showRRMinMax && <div>Min - Max</div>}
+                        {showRRQuantile && (
+                          <>
+                            <div>Med</div>
+                            <div>P50</div>
+                            <div>P25</div>
+                            <div>P10</div>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </td>
+                {ROLLING_RETURNS_WINDOWS.map(years => (
+                  <td key={years} style={{backgroundColor: fund.stats?.rollingReturns[years]?.color}}>
+                    {fund.stats?.rollingReturns[years]?.avg && fund.stats.rollingReturns[years]?.avg.toFixed(1)}
+
+                    <div style={{fontSize: 10, color: '#444'}}>
+                      <div>{fund.stats?.rollingReturns?.[years]?.count > 0 && fund.stats?.rollingReturns?.[years]?.count}</div>
+                    </div>
+                    {showRRMinMax && fund.stats?.rollingReturns[years]?.count > 0 && (
+                      <div style={{fontSize: 10, color: '#444'}}>
+                        <div>{fund.stats.rollingReturns[years]?.min?.toFixed(0)} - {fund.stats?.rollingReturns[years]?.max?.toFixed(0)}</div>
+                      </div>
+                    )}
+                    {showRRQuantile && fund.stats?.rollingReturns[years]?.count > 0 && (
+                      <div style={{fontSize: 10, color: '#444'}}>
+                        <div>{fund.stats.rollingReturns[years]?.median.toFixed(1)}</div>
+                        <div>{fund.stats.rollingReturns[years]?.p50.toFixed(1)}</div>
+                        <div>{fund.stats.rollingReturns[years]?.p25.toFixed(1)}</div>
+                        <div>{fund.stats.rollingReturns[years]?.p10.toFixed(1)}</div>
+                      </div>
+                    )}
+                  </td>))}
+                <td>
+                  <div>{fund.stats?.sipReturns?.currentValue && (+fund.stats.sipReturns.currentValue.toFixed(0)).toLocaleString('en-IN')}</div>
+                  <div style={{color: '#aaa', fontSize: 12}}>{fund.stats?.sipReturns?.investedValue && (+fund.stats.sipReturns.investedValue.toFixed(0)).toLocaleString('en-IN')}</div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
