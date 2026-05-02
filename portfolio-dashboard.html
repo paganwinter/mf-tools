@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mutual Fund Portfolio Dashboard</title>
+  <!-- <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script> -->
+  <!-- <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script> -->
+  <!-- <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script> -->
+  <script crossorigin src="js/react.development-18.3.1.js"></script>
+  <script crossorigin src="js/react-dom.development-18.3.1.js"></script>
+  <script src="js/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1e40af;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      line-height: 1.6;
+    }
+
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 8px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-secondary {
+      background: var(--gray-200);
+      color: var(--gray-700);
+    }
+
+    .btn-secondary:hover {
+      background: var(--gray-300);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    .upload-section {
+      background: white;
+      padding: 48px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .upload-section h2 {
+      font-size: 24px;
+      margin-bottom: 12px;
+      color: var(--gray-900);
+    }
+
+    .upload-section p {
+      color: var(--gray-600);
+      margin-bottom: 24px;
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    .file-input {
+      opacity: 0;
+      position: absolute;
+      z-index: -1;
+    }
+
+    .file-label {
+      display: inline-block;
+      padding: 12px 24px;
+      background: var(--primary);
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .file-label:hover {
+      background: var(--primary-dark);
+    }
+
+    .password-input {
+      margin-top: 16px;
+      padding: 12px;
+      border: 2px solid var(--gray-300);
+      border-radius: 8px;
+      font-size: 14px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .password-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--gray-600);
+    }
+
+    .spinner {
+      border: 3px solid var(--gray-200);
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .pan-selector {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+
+    .pan-selector h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--gray-900);
+    }
+
+    .pan-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .pan-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--gray-50);
+      border: 2px solid var(--gray-200);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .pan-option:hover {
+      background: var(--gray-100);
+    }
+
+    .pan-option.selected {
+      background: #eff6ff;
+      border-color: var(--primary);
+    }
+
+    .pan-option input[type="checkbox"] {
+      cursor: pointer;
+    }
+
+    .stats-overview {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .stat-card {
+      padding: 16px;
+      background: var(--gray-50);
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--gray-600);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .stat-value.positive {
+      color: var(--success);
+    }
+
+    .stat-value.negative {
+      color: var(--danger);
+    }
+
+    .funds-section {
+      margin-bottom: 40px;
+    }
+
+    .funds-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .funds-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin: 0;
+    }
+
+    .sort-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sort-label {
+      font-size: 14px;
+      color: var(--gray-600);
+      font-weight: 500;
+    }
+
+    .sort-select {
+      padding: 8px 12px;
+      border: 2px solid var(--gray-300);
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+    }
+
+    .sort-select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .sort-direction-btn {
+      padding: 8px 12px;
+      border: 2px solid var(--gray-300);
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+
+    .sort-direction-btn:hover {
+      background: var(--gray-50);
+      border-color: var(--primary);
+    }
+
+    .sort-direction-btn:active {
+      background: var(--gray-100);
+    }
+
+    .fund-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .fund-header {
+      padding: 20px;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .fund-header:hover {
+      background: var(--gray-100);
+    }
+
+    .fund-name {
+      flex: 1;
+    }
+
+    .fund-name h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--gray-900);
+      margin-bottom: 4px;
+    }
+
+    .fund-name .amc {
+      font-size: 13px;
+      color: var(--gray-500);
+    }
+
+    .fund-stats-inline {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .fund-stat-inline {
+      text-align: right;
+      min-width: 100px;
+    }
+
+    .fund-stat-inline .label {
+      font-size: 11px;
+      color: var(--gray-600);
+    }
+
+    .fund-stat-inline .value {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .fund-stat-inline .value.positive-value {
+      color: var(--success);
+    }
+
+    .fund-stat-inline .value.negative-value {
+      color: var(--danger);
+    }
+
+    .expand-icon {
+      font-size: 20px;
+      color: var(--gray-400);
+      transition: transform 0.3s;
+      margin-left: 12px;
+    }
+
+    .expand-icon.expanded {
+      transform: rotate(180deg);
+    }
+
+    .fund-details {
+      padding: 20px;
+    }
+
+    .pan-section {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: var(--gray-50);
+      border-radius: 8px;
+    }
+
+    .pan-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .pan-header {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--gray-900);
+      margin-bottom: 12px;
+    }
+
+    .pan-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .pan-stat {
+      font-size: 13px;
+    }
+
+    .pan-stat .label {
+      color: var(--gray-600);
+    }
+
+    .pan-stat .value {
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .pan-stat .value.positive-value {
+      color: var(--success);
+    }
+
+    .pan-stat .value.negative-value {
+      color: var(--danger);
+    }
+
+    .folios-table {
+      margin-top: 12px;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .folios-table th {
+      text-align: left;
+      padding: 8px;
+      background: white;
+      border-bottom: 2px solid var(--gray-200);
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .folios-table td {
+      padding: 8px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .folios-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .number {
+      text-align: right;
+    }
+
+    .positive-value {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .negative-value {
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .error-message {
+      background: #fee;
+      color: var(--danger);
+      padding: 16px;
+      border-radius: 8px;
+      border-left: 4px solid var(--danger);
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .app {
+        padding: 12px;
+      }
+
+      .header {
+        padding: 16px;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+      }
+
+      .fund-stats-inline {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 12px;
+      }
+
+      .fund-stat-inline {
+        min-width: 80px;
+      }
+
+      .funds-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .sort-controls {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .folios-table {
+        font-size: 12px;
+      }
+
+      .folios-table th,
+      .folios-table td {
+        padding: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ==================== INDEXEDDB ====================
+const DB_NAME = 'MutualFundPortfolioDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'portfolioData';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+  });
+}
+
+async function saveData(key, data) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put(data, key);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
+async function loadData(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(key);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+async function clearAllData() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.clear();
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
+// ==================== PDF PARSING ====================
+function parseCasNum(s) {
+  if (s == null) return 0;
+  let str = String(s).trim();
+  let neg = false;
+  if (/^\(.*\)$/.test(str)) { neg = true; str = str.slice(1, -1); }
+  str = str.replace(/,/g, '').replace(/[^\d\.\-]/g, '');
+  const n = parseFloat(str);
+  if (isNaN(n)) return 0;
+  return neg ? -n : n;
+}
+
+function parseCasDate(d) {
+  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(d.trim());
+  if (!m) return null;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mi = months.findIndex(x => x.toLowerCase() === m[2].toLowerCase());
+  if (mi < 0) return null;
+  return `${m[3]}-${String(mi + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+
+async function extractLines(pdf) {
+  const yBand = 3;
+  const columnGap = 3;
+  const rawLines = [];
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const items = content.items.filter(it => it.str && it.transform);
+    if (!items.length) continue;
+    
+    const bands = [];
+    for (const it of items) {
+      const y = it.transform[5];
+      let band = null;
+      for (const b of bands) {
+        if (Math.abs(b.y - y) <= yBand) { band = b; break; }
+      }
+      if (!band) { band = { y, items: [] }; bands.push(band); }
+      band.items.push(it);
+    }
+    
+    bands.sort((a, b) => b.y - a.y);
+    
+    for (const band of bands) {
+      band.items.sort((a, b) => a.transform[4] - b.transform[4]);
+      let out = '';
+      let prevRight = null;
+      
+      for (const it of band.items) {
+        const x = it.transform[4];
+        const w = it.width || 0;
+        if (prevRight == null) {
+          out = it.str;
+        } else {
+          const gap = x - prevRight;
+          if (gap >= columnGap) out += '\t\t' + it.str;
+          else if (gap > 0) out += ' ' + it.str;
+          else out += it.str;
+        }
+        prevRight = x + w;
+      }
+      
+      const text = out
+        .replace(/[ \t]*\t+[ \t]*/g, '\t\t')
+        .replace(/ {2,}/g, ' ')
+        .trim();
+      if (text) rawLines.push({ page: i, y: band.y, text });
+    }
+  }
+  return rawLines;
+}
+
+function detectFormat(lines) {
+  const fullText = lines.map(l => l.text).join(' | ');
+  if (/CAMSCAS(?:WS)?|camsonline\.com/i.test(fullText)) return 'CAMS';
+  if (/KFINCAS|KFINTECH\s+Consolidated|WWW\.KFINTECH\.COM|mfs\.kfintech\.com/i.test(fullText)) return 'KFINTECH';
+  return 'UNKNOWN';
+}
+
+function parseCAMSFromLines(lines) {
+  lines = lines.map(l => l.text);
+  
+  let currentAMC = null;
+  let currentPAN = null;
+  let currentFolio = null;
+  let currentScheme = null;
+  let currentISIN = null;
+  let currentFundId = null;
+  let currentInvestor = null;
+  let inTxns = false;
+  
+  const panAccounts = {};
+  const funds = {};
+  
+  const amcRe = /^([A-Z][A-Za-z0-9 &().'-]+?)\s+(Mutual\s+Fund|MF)\s*$/;
+  const txnRe = /^(\d{2}[-\/]\w{3}[-\/]\d{4})\s+([\w\s\/\(\)\-]+?)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)\s*([CD]?)/i;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    const amcM = line.match(amcRe);
+    if (amcM) {
+      currentAMC = amcM[1].toUpperCase();
+      continue;
+    }
+    
+    const folioLineM = line.match(/^\s*Folio No:\s*(.+?)\s*PAN:\s*([^\s]+)\s*KYC:/);
+    if (folioLineM) {
+      currentFolio = folioLineM[1];
+      currentPAN = folioLineM[2].toUpperCase();
+      currentInvestor = lines[i + 1].trim();
+      
+      if (!panAccounts[currentPAN]) {
+        panAccounts[currentPAN] = {
+          number: currentPAN,
+          name: currentInvestor,
+        };
+      }
+      
+      let schemeLine = '';
+      for (let j = 2; j < 6; j++) {
+        if (lines[i + j].includes('Nominee')) break;
+        schemeLine += lines[i + j];
+      }
+      schemeLine = schemeLine.replace(/\s*Registrar :/, '').replace('CAMS', '').replace('KFINTECH', '');
+      const schemeLineM = schemeLine.match(/[\w]+-(.+?) - ISIN:\s*(.+?)\(/);
+      currentScheme = schemeLineM[1];
+      currentISIN = schemeLineM[2];
+      currentFundId = currentScheme;
+      
+      inTxns = true;
+      
+      if (!funds[currentFundId]) {
+        funds[currentFundId] = {
+          amc: currentAMC,
+          isin: currentISIN,
+          name: currentScheme,
+          pans: {},
+        };
+      }
+      if (!funds[currentFundId].pans[currentPAN]) {
+        funds[currentFundId].pans[currentPAN] = {
+          pan: currentPAN,
+          investor: currentInvestor,
+          folios: {}
+        };
+      }
+      if (!funds[currentFundId].pans[currentPAN].folios[currentFolio]) {
+        funds[currentFundId].pans[currentPAN].folios[currentFolio] = {
+          folio: currentFolio,
+          transactions: []
+        };
+      }
+      
+      continue;
+    }
+    
+    const openingM = line.match(/Opening\s+Unit\s+Balance\s*:?\s*([\-\(\)\d,\.]+)/i);
+    if (openingM) {
+      funds[currentFundId].pans[currentPAN].folios[currentFolio].openingUnitBalance = parseCasNum(openingM[1]);
+    }
+    
+    const closeLineM = line.match(/^\s*Closing Unit Balance:/);
+    if (closeLineM && currentPAN && currentFolio && currentISIN) {
+      const closeUnitBalM = line.match(/Closing\s+Unit\s+Balance\s*:?\s*([\-\(\)\d,\.]+)/i);
+      if (closeUnitBalM) funds[currentFundId].pans[currentPAN].folios[currentFolio].closingUnitBalance = parseCasNum(closeUnitBalM[1]);
+      
+      const totCostValM = line.match(/Total\s+Cost\s+Value\s*:\s*([\-\(\)\d,\.]+)/i);
+      if (totCostValM) funds[currentFundId].pans[currentPAN].folios[currentFolio].totalCostValue = parseCasNum(totCostValM[1]);
+      
+      const marketValM = line.match(/(?:Market\s+Value|Valuation)\s+on\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s*:\s*INR\s*([\-\(\)\d,\.]+)/i);
+      if (marketValM) {
+        funds[currentFundId].pans[currentPAN].folios[currentFolio].marketValue = parseCasNum(marketValM[2]);
+        funds[currentFundId].pans[currentPAN].folios[currentFolio].casNavDate = parseCasDate(marketValM[1]);
+      }
+      
+      const navM = line.match(/NAV\s+on\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s*:\s*INR\s*([\-\(\)\d,\.]+)/i);
+      if (navM) {
+        funds[currentFundId].pans[currentPAN].folios[currentFolio].casNav = parseCasNum(navM[2]);
+        funds[currentFundId].pans[currentPAN].folios[currentFolio].casNavDate = parseCasDate(navM[1]);
+      }
+      
+      continue;
+    }
+    
+    if (inTxns && currentPAN && currentFolio && currentISIN) {
+      const txnM = line.match(txnRe);
+      if (txnM) {
+        let date = parseCasDate(txnM[1]);
+        date = date ? date : txnM[1];
+        const description = txnM[2].trim();
+        const amount = parseCasNum(txnM[3]);
+        const units = parseCasNum(txnM[4]);
+        const nav = parseCasNum(txnM[5]);
+        const side = txnM[6] ? txnM[6].toUpperCase() : (description.toLowerCase().includes("redempt") ? "D" : "C");
+        const type = side === "D" ? "Redemption" : description.toLowerCase().includes("dividend") ? "Dividend" : "Purchase";
+        
+        funds[currentFundId].pans[currentPAN].folios[currentFolio].transactions.push({ date, description, amount, units, nav, type });
+      }
+    }
+  }
+  
+  return { funds, panAccounts };
+}
+
+async function parseCAS(fileArrayBuffer, password) {
+  const ab = fileArrayBuffer;
+  let pdf;
+  try {
+    const task = pdfjsLib.getDocument({ data: ab, password });
+    pdf = await task.promise;
+  } catch (e) {
+    if (e?.name === 'PasswordException') {
+      const code = e.code;
+      if (code === 1) throw new Error('Password required');
+      throw new Error('Incorrect password. Please check your PAN and date of birth format.');
+    }
+    throw new Error(e?.message || 'Could not open PDF.');
+  }
+  
+  let lines = await extractLines(pdf);
+  const format = detectFormat(lines);
+  
+  if (format === 'KFINTECH') {
+    throw new Error('KFintech statements are not supported yet. Only CAMS is supported.');
+  }
+  if (format === 'UNKNOWN') {
+    throw new Error('This does not look like a supported statement. Only CAMS CAS PDFs are supported.');
+  }
+  if (format === 'CAMS') return parseCAMSFromLines(lines);
+}
+
+// ==================== STATS CALCULATION ====================
+function xirr(cashflows) {
+  if (cashflows.length < 2) return null;
+  const sorted = [...cashflows].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const t0 = new Date(sorted[0].date).getTime();
+  const years = sorted.map(cf => (new Date(cf.date).getTime() - t0) / (365.25 * 24 * 3600 * 1000));
+  const amounts = sorted.map(cf => cf.amount);
+  const npv = r => amounts.reduce((s, a, i) => s + a / Math.pow(1 + r, years[i]), 0);
+  const dnpv = r => amounts.reduce((s, a, i) => s - (years[i] * a) / Math.pow(1 + r, years[i] + 1), 0);
+  let rate = 0.1;
+  for (let i = 0; i < 100; i++) {
+    const v = npv(rate), dv = dnpv(rate);
+    if (Math.abs(v) < 1e-7 || dv === 0) break;
+    rate -= v / dv;
+    if (rate <= -1) rate = -0.999;
+  }
+  return !isFinite(rate) || isNaN(rate) ? null : rate;
+}
+
+function calculatePortfolioStats(casData, selectedPANs = null) {
+  const { funds, panAccounts } = casData;
+  const includePAN = (pan) => !selectedPANs || selectedPANs.includes(pan);
+  
+  function computeStats(marketValue, invested, cashflows, currentCashflows) {
+    const pnl = marketValue - invested;
+    const pnlPercentage = invested > 0 ? (pnl / invested) * 100 : 0;
+    const xirrValue = cashflows.length >= 2 ? xirr(cashflows) : null;
+    const xirrPercentage = xirrValue !== null ? xirrValue * 100 : null;
+    const currentXirrValue = currentCashflows.length >= 2 ? xirr(currentCashflows) : null;
+    const currentXirrPercentage = currentXirrValue !== null ? currentXirrValue * 100 : null;
+    
+    return {
+      marketValue,
+      invested,
+      pnl,
+      pnlPercentage,
+      xirr: xirrPercentage,
+      currentXirr: currentXirrPercentage,
+    };
+  }
+  
+  let overallMarketValue = 0;
+  let overallInvested = 0;
+  let overallCashflows = [];
+  let overallCurrentCashflows = [];
+  
+  const fundStats = [];
+  
+  Object.entries(funds).forEach(([fundName, fund]) => {
+    let fundMarketValue = 0;
+    let fundInvested = 0;
+    let fundCashflows = [];
+    let fundCurrentCashflows = [];
+    const fundByPAN = {};
+    
+    Object.entries(fund.pans).forEach(([panNumber, pan]) => {
+      if (!includePAN(panNumber)) return;
+      
+      let panMarketValue = 0;
+      let panInvested = 0;
+      let panCashflows = [];
+      let panCurrentCashflows = [];
+      const panFolios = [];
+      
+      Object.entries(pan.folios).forEach(([folioNumber, folio]) => {
+        const folioMarketValue = folio.marketValue || 0;
+        const folioInvested = folio.totalCostValue || 0;
+        const isCurrentlyHeld = folioMarketValue > 0;
+        
+        panMarketValue += folioMarketValue;
+        panInvested += folioInvested;
+        
+        const folioCashflows = [];
+        const folioCurrentCashflows = [];
+        
+        if (folio.transactions && folio.transactions.length > 0) {
+          folio.transactions.forEach(txn => {
+            if (!txn.date || txn.amount === 0) return;
+            
+            let cashflowAmount = txn.amount;
+            
+            if (txn.type === 'Purchase' || txn.type === 'SIP') {
+              cashflowAmount = -Math.abs(cashflowAmount);
+            } else if (txn.type === 'Redemption' || txn.type === 'Dividend') {
+              cashflowAmount = Math.abs(cashflowAmount);
+            } else {
+              cashflowAmount = txn.units > 0 ? -Math.abs(cashflowAmount) : Math.abs(cashflowAmount);
+            }
+            
+            folioCashflows.push({ date: txn.date, amount: cashflowAmount });
+            
+            // For current XIRR, only include if folio is currently held
+            if (isCurrentlyHeld) {
+              folioCurrentCashflows.push({ date: txn.date, amount: cashflowAmount });
+            }
+          });
+        }
+        
+        // Add current market value as final cashflow
+        if (folioMarketValue > 0 && folio.casNavDate) {
+          folioCashflows.push({ date: folio.casNavDate, amount: folioMarketValue });
+          folioCurrentCashflows.push({ date: folio.casNavDate, amount: folioMarketValue });
+        }
+        
+        panCashflows.push(...folioCashflows);
+        panCurrentCashflows.push(...folioCurrentCashflows);
+        
+        panFolios.push({
+          folioNumber,
+          marketValue: folioMarketValue,
+          invested: folioInvested,
+          pnl: folioMarketValue - folioInvested,
+          pnlPercentage: folioInvested > 0 ? ((folioMarketValue - folioInvested) / folioInvested) * 100 : 0,
+          openingBalance: folio.openingUnitBalance || 0,
+          closingBalance: folio.closingUnitBalance || 0,
+          nav: folio.casNav || 0,
+          navDate: folio.casNavDate || null,
+          transactionCount: folio.transactions ? folio.transactions.length : 0,
+        });
+      });
+      
+      if (panMarketValue > 0 || panInvested > 0) {
+        fundMarketValue += panMarketValue;
+        fundInvested += panInvested;
+        fundCashflows.push(...panCashflows);
+        fundCurrentCashflows.push(...panCurrentCashflows);
+        
+        fundByPAN[panNumber] = {
+          panNumber,
+          investor: pan.investor,
+          ...computeStats(panMarketValue, panInvested, panCashflows, panCurrentCashflows),
+          folios: panFolios,
+        };
+      }
+    });
+    
+    if (fundMarketValue > 0 || fundInvested > 0) {
+      overallMarketValue += fundMarketValue;
+      overallInvested += fundInvested;
+      overallCashflows.push(...fundCashflows);
+      overallCurrentCashflows.push(...fundCurrentCashflows);
+      
+      fundStats.push({
+        fundName,
+        amc: fund.amc,
+        isin: fund.isin,
+        total: computeStats(fundMarketValue, fundInvested, fundCashflows, fundCurrentCashflows),
+        byPAN: fundByPAN,
+      });
+    }
+  });
+  
+  fundStats.sort((a, b) => b.total.marketValue - a.total.marketValue);
+  
+  return {
+    overall: computeStats(overallMarketValue, overallInvested, overallCashflows, overallCurrentCashflows),
+    funds: fundStats,
+    metadata: {
+      totalFunds: fundStats.length,
+      totalPANs: Object.keys(panAccounts).filter(includePAN).length,
+      panAccounts: Object.entries(panAccounts)
+        .filter(([pan]) => includePAN(pan))
+        .map(([pan, account]) => ({
+          pan,
+          name: account.name,
+        })),
+    },
+  };
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+function formatCurrency(value) {
+  if (value === undefined || value === null) return '₹0';
+  return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+function formatPercentage(value) {
+  if (value === undefined || value === null) return '-';
+  return value.toFixed(2) + '%';
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ==================== REACT COMPONENTS ====================
+
+function UploadSection({ onUploadComplete }) {
+  const [file, setFile] = useState(null);
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile && selectedFile.type === 'application/pdf') {
+      setFile(selectedFile);
+      setError(null);
+    } else {
+      setError('Please select a valid PDF file');
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Please select a file');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const parsedData = await parseCAS(arrayBuffer, password || undefined);
+      
+      await saveData('casData', parsedData);
+      onUploadComplete(parsedData);
+    } catch (err) {
+      setError(err.message || 'Failed to parse CAS file');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="upload-section">
+      {error && <div className="error-message">{error}</div>}
+      
+      <h2>Upload CAS Statement</h2>
+      <p>Upload your CAMS Consolidated Account Statement (PDF) to get started</p>
+      
+      <div className="file-input-wrapper">
+        <input
+          type="file"
+          id="cas-file"
+          className="file-input"
+          accept=".pdf"
+          onChange={handleFileChange}
+        />
+        <label htmlFor="cas-file" className="file-label">
+          {file ? file.name : 'Choose PDF File'}
+        </label>
+      </div>
+      
+      {file && (
+        <div style={{ marginTop: '16px' }}>
+          <input
+            type="password"
+            className="password-input"
+            placeholder="Password (PAN + DOB: ABCDE1234F01011990)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          
+          <div style={{ marginTop: '16px' }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleUpload}
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : 'Upload & Parse'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PANSelector({ panAccounts, selectedPANs, onSelectionChange }) {
+  const handleToggle = (pan) => {
+    if (selectedPANs.includes(pan)) {
+      onSelectionChange(selectedPANs.filter(p => p !== pan));
+    } else {
+      onSelectionChange([...selectedPANs, pan]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onSelectionChange(Object.keys(panAccounts));
+  };
+
+  const handleClearAll = () => {
+    onSelectionChange([]);
+  };
+
+  return (
+    <div className="pan-selector">
+      <h3>Select PAN Accounts</h3>
+      <div className="pan-options">
+        {Object.entries(panAccounts).map(([pan, account]) => (
+          <label
+            key={pan}
+            className={`pan-option ${selectedPANs.includes(pan) ? 'selected' : ''}`}
+          >
+            <input
+              type="checkbox"
+              checked={selectedPANs.includes(pan)}
+              onChange={() => handleToggle(pan)}
+            />
+            <div>
+              <div style={{ fontWeight: 600 }}>{account.name}</div>
+              <div style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{pan}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+      <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+        <button className="btn btn-secondary" onClick={handleSelectAll}>Select All</button>
+        <button className="btn btn-secondary" onClick={handleClearAll}>Clear All</button>
+      </div>
+    </div>
+  );
+}
+
+function StatsOverview({ stats }) {
+  return (
+    <div className="stats-overview">
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-label">Total Market Value</div>
+          <div className="stat-value">{formatCurrency(stats.marketValue)}</div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-label">Total Invested</div>
+          <div className="stat-value">{formatCurrency(stats.invested)}</div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-label">Total P&L</div>
+          <div className={`stat-value ${stats.pnl >= 0 ? 'positive' : 'negative'}`}>
+            {formatCurrency(stats.pnl)}
+          </div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-label">Total P&L %</div>
+          <div className={`stat-value ${stats.pnlPercentage >= 0 ? 'positive' : 'negative'}`}>
+            {formatPercentage(stats.pnlPercentage)}
+          </div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-label">All-Time XIRR</div>
+          <div className={`stat-value ${(stats.xirr || 0) >= 0 ? 'positive' : 'negative'}`}>
+            {formatPercentage(stats.xirr)}
+          </div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-label">Current XIRR</div>
+          <div className={`stat-value ${(stats.currentXirr || 0) >= 0 ? 'positive' : 'negative'}`}>
+            {formatPercentage(stats.currentXirr)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FundCard({ fund }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="fund-card">
+      <div className="fund-header" onClick={() => setExpanded(!expanded)}>
+        <div className="fund-name">
+          <h3>{fund.fundName}</h3>
+          <div className="amc">{fund.amc}</div>
+        </div>
+        
+        <div className="fund-stats-inline">
+          <div className="fund-stat-inline">
+            <div className="label">Invested</div>
+            <div className="value">{formatCurrency(fund.total.invested)}</div>
+          </div>
+          
+          <div className="fund-stat-inline">
+            <div className="label">Current Value</div>
+            <div className="value">{formatCurrency(fund.total.marketValue)}</div>
+          </div>
+          
+          <div className="fund-stat-inline">
+            <div className="label">P&L</div>
+            <div className={`value ${fund.total.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>
+              {formatCurrency(fund.total.pnl)}
+            </div>
+          </div>
+          
+          <div className="fund-stat-inline">
+            <div className="label">P&L %</div>
+            <div className={`value ${fund.total.pnlPercentage >= 0 ? 'positive-value' : 'negative-value'}`}>
+              {formatPercentage(fund.total.pnlPercentage)}
+            </div>
+          </div>
+          
+          <div className="fund-stat-inline">
+            <div className="label">XIRR</div>
+            <div className={`value ${(fund.total.xirr || 0) >= 0 ? 'positive-value' : 'negative-value'}`}>
+              {formatPercentage(fund.total.xirr)}
+            </div>
+          </div>
+          
+          <span className={`expand-icon ${expanded ? 'expanded' : ''}`}>▼</span>
+        </div>
+      </div>
+      
+      {expanded && (
+        <div className="fund-details">
+          {Object.values(fund.byPAN).map(pan => (
+            <div key={pan.panNumber} className="pan-section">
+              <div className="pan-header">
+                {pan.investor} ({pan.panNumber})
+              </div>
+              
+              <div className="pan-stats">
+                <div className="pan-stat">
+                  <div className="label">Market Value:</div>
+                  <div className="value">{formatCurrency(pan.marketValue)}</div>
+                </div>
+                
+                <div className="pan-stat">
+                  <div className="label">Invested:</div>
+                  <div className="value">{formatCurrency(pan.invested)}</div>
+                </div>
+                
+                <div className="pan-stat">
+                  <div className="label">P&L:</div>
+                  <div className={`value ${pan.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>
+                    {formatCurrency(pan.pnl)} ({formatPercentage(pan.pnlPercentage)})
+                  </div>
+                </div>
+                
+                <div className="pan-stat">
+                  <div className="label">All-Time XIRR:</div>
+                  <div className={`value ${(pan.xirr || 0) >= 0 ? 'positive-value' : 'negative-value'}`}>
+                    {formatPercentage(pan.xirr)}
+                  </div>
+                </div>
+                
+                <div className="pan-stat">
+                  <div className="label">Current XIRR:</div>
+                  <div className={`value ${(pan.currentXirr || 0) >= 0 ? 'positive-value' : 'negative-value'}`}>
+                    {formatPercentage(pan.currentXirr)}
+                  </div>
+                </div>
+              </div>
+              
+              <table className="folios-table">
+                <thead>
+                  <tr>
+                    <th>Folio</th>
+                    <th className="number">Units</th>
+                    <th className="number">NAV</th>
+                    <th className="number">Value</th>
+                    <th className="number">Invested</th>
+                    <th className="number">P&L %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pan.folios.map(folio => (
+                    <tr key={folio.folioNumber}>
+                      <td>{folio.folioNumber}</td>
+                      <td className="number">{folio.closingBalance.toFixed(3)}</td>
+                      <td className="number">{formatCurrency(folio.nav)}</td>
+                      <td className="number">{formatCurrency(folio.marketValue)}</td>
+                      <td className="number">{formatCurrency(folio.invested)}</td>
+                      <td className={`number ${folio.pnlPercentage >= 0 ? 'positive-value' : 'negative-value'}`}>
+                        {formatPercentage(folio.pnlPercentage)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Dashboard({ casData, onReset }) {
+  const [selectedPANs, setSelectedPANs] = useState(Object.keys(casData.panAccounts));
+  const [stats, setStats] = useState(null);
+  const [sortBy, setSortBy] = useState('marketValue');
+  const [sortDirection, setSortDirection] = useState('desc');
+
+  useEffect(() => {
+    if (selectedPANs.length > 0) {
+      const calculatedStats = calculatePortfolioStats(casData, selectedPANs);
+      setStats(calculatedStats);
+    } else {
+      setStats(null);
+    }
+  }, [casData, selectedPANs]);
+
+  const sortedFunds = stats?.funds ? [...stats.funds].sort((a, b) => {
+    let aVal, bVal;
+    
+    switch(sortBy) {
+      case 'name':
+        aVal = a.fundName.toLowerCase();
+        bVal = b.fundName.toLowerCase();
+        return sortDirection === 'asc' 
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      case 'invested':
+        aVal = a.total.invested;
+        bVal = b.total.invested;
+        break;
+      case 'marketValue':
+        aVal = a.total.marketValue;
+        bVal = b.total.marketValue;
+        break;
+      case 'pnl':
+        aVal = a.total.pnl;
+        bVal = b.total.pnl;
+        break;
+      case 'pnlPercentage':
+        aVal = a.total.pnlPercentage;
+        bVal = b.total.pnlPercentage;
+        break;
+      case 'xirr':
+        aVal = a.total.xirr || 0;
+        bVal = b.total.xirr || 0;
+        break;
+      default:
+        aVal = a.total.marketValue;
+        bVal = b.total.marketValue;
+    }
+    
+    return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+  }) : [];
+
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+  };
+
+  return (
+    <>
+      <div className="header">
+        <h1>Mutual Fund Portfolio</h1>
+        <p style={{ color: 'var(--gray-600)' }}>Track your investments across funds and folios</p>
+        <div className="header-actions">
+          <button className="btn btn-danger" onClick={onReset}>
+            Clear Data & Upload New
+          </button>
+        </div>
+      </div>
+
+      <PANSelector
+        panAccounts={casData.panAccounts}
+        selectedPANs={selectedPANs}
+        onSelectionChange={setSelectedPANs}
+      />
+
+      {stats && selectedPANs.length > 0 && (
+        <>
+          <StatsOverview stats={stats.overall} />
+
+          <div className="funds-section">
+            <div className="funds-header">
+              <h2>Funds ({stats.funds.length})</h2>
+              <div className="sort-controls">
+                <span className="sort-label">Sort by:</span>
+                <select 
+                  className="sort-select" 
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <option value="name">Fund Name</option>
+                  <option value="invested">Invested</option>
+                  <option value="marketValue">Market Value</option>
+                  <option value="pnl">P&L (Absolute)</option>
+                  <option value="pnlPercentage">P&L %</option>
+                  <option value="xirr">XIRR</option>
+                </select>
+                <button 
+                  className="sort-direction-btn" 
+                  onClick={toggleSortDirection}
+                  title={sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+                >
+                  {sortDirection === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
+            </div>
+            {sortedFunds.map(fund => (
+              <FundCard key={fund.isin} fund={fund} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {selectedPANs.length === 0 && (
+        <div className="upload-section">
+          <h2>No PANs Selected</h2>
+          <p>Please select at least one PAN account to view your portfolio</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+function App() {
+  const [casData, setCasData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData('casData')
+      .then(data => {
+        if (data) {
+          setCasData(data);
+        }
+      })
+      .catch(err => console.error('Failed to load data:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleUploadComplete = (data) => {
+    setCasData(data);
+  };
+
+  const handleReset = async () => {
+    if (confirm('Are you sure you want to clear all data?')) {
+      await clearAllData();
+      setCasData(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="app">
+        <div className="loading">
+          <div className="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app">
+      {!casData
+        ? (<UploadSection onUploadComplete={handleUploadComplete} />)
+        : ( <Dashboard casData={casData} onReset={handleReset} />)
+      }
+    </div>
+  );
+}
+
+// Initialize PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+// Render the app
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
