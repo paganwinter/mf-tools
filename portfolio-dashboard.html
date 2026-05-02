@@ -1085,7 +1085,7 @@ function UploadSection({ onUploadComplete }) {
       await saveData('casData', parsedData);
       onUploadComplete(parsedData);
     } catch (err) {
-      setError(err.message || 'Failed to parse CAS file');
+      setError(err.message+err.stack || 'Failed to parse CAS file');
     } finally {
       setLoading(false);
     }
