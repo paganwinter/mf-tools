@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mutual Fund Portfolio Dashboard</title>
+<!-- <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script> -->
+<!-- <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script> -->
+<!-- <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script> -->
+<script crossorigin src="js/react.development-18.3.1.js"></script>
+<script crossorigin src="js/react-dom.development-18.3.1.js"></script>
+<script src="js/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  /* background: var(--gray-50); */
+  color: var(--gray-900);
+  line-height: 1.6;
+}
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 8px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn-secondary {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.btn-secondary:hover {
+  background: var(--gray-300);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.upload-section {
+  background: white;
+  padding: 48px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.upload-section h2 {
+  font-size: 24px;
+  margin-bottom: 12px;
+  color: var(--gray-900);
+}
+
+.upload-section p {
+  color: var(--gray-600);
+  margin-bottom: 24px;
+}
+
+.file-input-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.file-input {
+  opacity: 0;
+  position: absolute;
+  z-index: -1;
+}
+
+.file-label {
+  display: inline-block;
+  padding: 12px 24px;
+  background: var(--primary);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.file-label:hover {
+  background: var(--primary-dark);
+}
+
+.password-input {
+  margin-top: 16px;
+  padding: 12px;
+  border: 2px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 14px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.password-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.loading {
+  text-align: center;
+  padding: 48px;
+  color: var(--gray-600);
+}
+
+.spinner {
+  border: 3px solid var(--gray-200);
+  border-top: 3px solid var(--primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.pan-selector {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 24px;
+}
+
+.pan-selector h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--gray-900);
+}
+
+.pan-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pan-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--gray-50);
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pan-option:hover {
+  background: var(--gray-100);
+}
+
+.pan-option.selected {
+  background: #eff6ff;
+  border-color: var(--primary);
+}
+
+.pan-option input[type="checkbox"] {
+  cursor: pointer;
+}
+
+
+.funds-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.funds-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sort-label {
+  font-size: 14px;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+.sort-select {
+  padding: 8px 12px;
+  border: 2px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.sort-direction-btn {
+  padding: 8px 12px;
+  border: 2px solid var(--gray-300);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.sort-direction-btn:hover {
+  background: var(--gray-50);
+  border-color: var(--primary);
+}
+
+.sort-direction-btn:active {
+  background: var(--gray-100);
+}
+
+
+.funds-section {
+  margin-bottom: 40px;
+}
+.fund-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.fund-header {
+  padding: 20px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+  cursor: pointer;
+  /* display: flex; */
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fund-header:hover {
+  background: var(--gray-100);
+}
+
+.fund-name {
+  /* flex: 1; */
+}
+
+.fund-name h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+}
+
+.fund-name .amc {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+.stats-label {
+  margin-right: 5px;
+  color: var(--gray-600);
+  font-size: 12px;
+}
+.stats-value {
+  font-size: 14px;
+}
+.stats-market-value {
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 18px;
+}
+
+.expand-icon {
+  font-size: 20px;
+  color: var(--gray-400);
+  transition: transform 0.3s;
+  margin-left: 12px;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.fund-details {
+  padding: 10px;
+}
+
+.pan-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+}
+
+.pan-section:last-child {
+  margin-bottom: 0;
+}
+
+.pan-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+}
+
+
+.folios-table {
+  margin-top: 12px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.folios-table th {
+  text-align: left;
+  padding: 8px;
+  background: white;
+  border-bottom: 2px solid var(--gray-200);
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.folios-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.folios-table tr:last-child td {
+  border-bottom: none;
+}
+
+
+
+.number {
+  text-align: right;
+}
+.positive-value {
+  color: var(--success);
+  font-weight: 600;
+}
+.negative-value {
+  color: var(--danger);
+  font-weight: 600;
+}
+.error-message {
+  background: #fee;
+  color: var(--danger);
+  padding: 16px;
+  border-radius: 8px;
+  border-left: 4px solid var(--danger);
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .app {
+    padding: 12px;
+  }
+
+  .header {
+    padding: 16px;
+  }
+
+  /* .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .fund-stats-inline {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .fund-stat-inline {
+    min-width: 80px;
+  } */
+
+  .funds-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sort-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .folios-table {
+    font-size: 12px;
+  }
+
+  .folios-table th,
+  .folios-table td {
+    padding: 6px;
+  }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// Initialize PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+const MFAPI = 'https://api.mfapi.in';
+
+
+// #region DATABASE
+const DB_NAME = 'MutualFundPortfolioDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'portfolioData';
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+  });
+}
+async function loadData(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(key);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+async function saveData(key, data) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put(data, key);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+async function clearAllData() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.clear();
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+// #endregion DATABASE
+
+
+
+// #region CAS Parser
+// pdf.js emits TextItems with absolute (x, y) in page units and a rendered `width`.
+// We bucket items into y-bands, then within a band re-insert separators based on
+// x-gaps: gaps >= columnGap become `\t\t` (column boundary), smaller gaps
+// become a single space. Downstream, tryExtractTxn can split on `\t\t` to
+// recover columns even when pdf.js has shattered a row across many items.
+//
+// Defaults (yBand=3, columnGap=3) are tuned for CAMS / KFintech CAS. Depository
+// statements (NSDL / CDSL) have looser text baselines — casparser uses a 7pt
+// y-tolerance for those. Callers pass { yBand, columnGap } per format.
+const Y_BAND_PT = 3;
+const COLUMN_GAP_PT = 3;
+
+// pdf.js often inserts spaces between every character group in compact text.
+// These regexes tolerate that:
+//   "INF 740 KA 1 TE 9" matches as the 12-char ISIN.
+//   "D 896 - DSP Multi..." matches as a scheme code.
+// The 12-char ISIN sometimes lands on a different y-band than the word "ISIN",
+// with intervening junk like `ISIN :\t\tRegistrar : CAMS\nINF109K 015K 4`.
+// Allow up to 80 chars of anything between the label and the captured ISIN,
+// and anchor the capture on Indian country code "IN" (CAMS only ever reports
+// Indian mutual fund ISINs). Without the "IN" anchor, a lazy `[A-Z]` at the
+// start locks onto false positives like "S INF109K 015K" (starting from the
+// `S` of `CAMS`). The check-digit validator provides a second guard.
+const ISIN_TOLERANT_RE = /ISIN(?:[^\n]{0,80}?)(IN(?:\s*[A-Z0-9]){9}\s*\d)(?![A-Z0-9])/i;
+const SCHEME_CODE_RE = /^\s*[A-Z0-9](?:\s*[A-Z0-9]){0,9}\s*-\s*/;
+
+// Transaction row shapes — ported from codereverser/casparser TRANSACTION_RE{1..4}.
+//   Shape 4: desc  amount  units  nav  balance   (normal purchase / redemption / SIP)
+//   Shape 3: desc  amount         nav  balance   (dividend payout — units unchanged)
+//   Shape 2: desc  amount              balance   (segregated portfolio / side-pocket)
+//   Shape 1: desc  amount                        (tax row: STT, stamp duty, TDS)
+// Primary path uses \t\t column separators from extractLines.
+// Fallback path uses trailing-number regexes for lines where the PDF gave us no gaps.
+const NUM_TOK = /^-?\(?-?[\d,]+(?:\.\d+)?\)?\*?$/;
+
+// ISO 6166 check-digit for ISIN. Guards against false positives where the
+// letters "ISIN" appear in prose followed by 12 plausible chars.
+function isinCheckDigitValid(isin) {
+  if (!/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(isin)) return false;
+  let digits = '';
+  for (const c of isin.slice(0, -1)) {
+    digits += /[0-9]/.test(c) ? c : (c.charCodeAt(0) - 55).toString();
+  }
+  let sum = 0;
+  const rev = digits.split('').reverse();
+  for (let i = 0; i < rev.length; i++) {
+    let d = parseInt(rev[i], 10);
+    if (i % 2 === 0) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  const expected = (10 - (sum % 10)) % 10;
+  return expected === parseInt(isin.slice(-1), 10);
+}
+
+function parseCasNum(s) {
+  if (s == null) return 0;
+  let str = String(s).trim();
+  let neg = false;
+  if (/^\(.*\)$/.test(str)) { neg = true; str = str.slice(1, -1); }
+  str = str.replace(/,/g, '').replace(/[^\d\.\-]/g, '');
+  const n = parseFloat(str);
+  if (isNaN(n)) return 0;
+  return neg ? -n : n;
+}
+function parseCasDate(d) {
+  // "01-Jan-2024" → ISO date
+  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(d.trim());
+  if (!m) return null;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mi = months.findIndex(x => x.toLowerCase() === m[2].toLowerCase());
+  if (mi < 0) return null;
+  return `${m[3]}-${String(mi + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+function toTitleCase(s) {
+  return s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+}
+
+function tryExtractTxn(line) {
+  const txt = line.text;
+  const dateM = /^(\d{1,2}-[A-Za-z]{3}-\d{4})(?:\s+|\t\t)([\s\S]*)$/.exec(txt);
+  if (!dateM) return null;
+  const [, date, restRaw] = dateM;
+  const rest = restRaw.trim();
+
+  // Primary: split on \t\t (column boundary).
+  const rawCols = rest.split(/\t\t/).map(c => c.replace(/[ \t]+/g, ' ').trim()).filter(Boolean);
+  if (rawCols.length >= 1) {
+    // Collect trailing numeric columns right-to-left.
+    let numTail = [];
+    let textEnd = rawCols.length;  // exclusive index of last "text" column
+    for (let k = rawCols.length - 1; k >= 0; k--) {
+      if (NUM_TOK.test(rawCols[k])) { numTail.unshift(parseCasNum(rawCols[k])); textEnd = k; }
+      else break;
+    }
+    // pdf.js often keeps description + amount + units fused into one column when
+    // the x-gap between them is smaller than the gap before NAV/balance. Peel
+    // any trailing "\s NUM" tokens out of the last text column so they count as
+    // additional numeric cols. Iterate — `(83,591.00) (1,609.888)` peels in two
+    // passes (one for the trailing number, one for the remaining NUM_TOK string).
+    // Pattern: allow parenthesised negatives and optional `*` marker.
+    const PEEL_TAIL_RE = /^([\s\S]*?)((?:\s(?:-?\(?[\d,]+(?:\.\d+)?\)?\*?)){1,4})\s*$/;
+    for (let safety = 0; safety < 6 && textEnd > 0; safety++) {
+      const lastText = rawCols[textEnd - 1];
+      if (!lastText) { rawCols.splice(textEnd - 1, 1); textEnd--; continue; }
+      if (NUM_TOK.test(lastText)) {
+        numTail.unshift(parseCasNum(lastText));
+        rawCols.splice(textEnd - 1, 1);
+        textEnd--;
+        continue;
+      }
+      const mm = PEEL_TAIL_RE.exec(lastText);
+      if (!mm || !mm[2].trim()) break;
+      const extras = mm[2].trim().split(/\s+/).map(parseCasNum);
+      const pre = mm[1].trim();
+      numTail = [...extras, ...numTail];
+      if (!pre) { rawCols.splice(textEnd - 1, 1); textEnd--; }
+      else rawCols[textEnd - 1] = pre;
+    }
+
+    const numCount = numTail.length;
+    const desc = rawCols.slice(0, textEnd).join(' ').trim();
+    if (numCount >= 1 && desc) {
+      if (numCount >= 4) {
+        const [amount, units, nav, balance] = numTail.slice(-4);
+        return { date, desc, amount, units, nav, balance, shape: 4 };
+      }
+      if (numCount === 3) {
+        // 3 trailing numerics is classic dividend-payout (units unchanged).
+        if (DIVIDEND_RE.test(desc)) {
+          const [amount, nav, balance] = numTail;
+          return { date, desc, amount, units: 0, nav, balance, shape: 3 };
+        }
+        // Otherwise assume [amount, units, balance] (rare; nav missing).
+        const [amount, units, balance] = numTail;
+        return { date, desc, amount, units, nav: 0, balance, shape: 3 };
+      }
+      if (numCount === 2) {
+        // Segregated portfolio / side-pocket only; otherwise too ambiguous to claim.
+        if (/segregated|side\s*pocket/i.test(desc)) {
+          return { date, desc, amount: numTail[0], units: 0, nav: 0, balance: numTail[1], shape: 2 };
+        }
+        // Fall through — don't claim a transaction we can't explain.
+      }
+      if (numCount === 1) {
+        // Tax rows: STT, stamp duty, TDS. These are charges, not trades.
+        if (/\bstt\b|stamp\s*duty|\btds\b|tax\s*deducted/i.test(desc)) {
+          return { date, desc, amount: numTail[0], units: 0, nav: 0, balance: 0, shape: 1 };
+        }
+      }
+    }
+  }
+
+  // Fallback: regex-only, when columns didn't come through.
+  const T4 = /(-?\(?[\d,]+(?:\.\d+)?\)?)\s+(-?\(?[\d,]+(?:\.\d+)?\)?)\s+(-?\(?[\d,]+(?:\.\d+)?\)?)\s+(-?\(?[\d,]+(?:\.\d+)?\)?)\s*\*?\s*$/;
+  const m4 = T4.exec(rest);
+  if (m4) {
+    const desc = rest.slice(0, m4.index).trim();
+    if (desc) return {
+      date, desc,
+      amount: parseCasNum(m4[1]),
+      units: parseCasNum(m4[2]),
+      nav: parseCasNum(m4[3]),
+      balance: parseCasNum(m4[4]),
+      shape: 4,
+    };
+  }
+
+  const T3 = /(-?\(?[\d,]+(?:\.\d+)?\)?)\s+(-?\(?[\d,]+(?:\.\d+)?\)?)\s+(-?\(?[\d,]+(?:\.\d+)?\)?)\s*\*?\s*$/;
+  const m3 = T3.exec(rest);
+  if (m3) {
+    const desc = rest.slice(0, m3.index).trim();
+    // Only accept 3-col fallback for dividend-shaped descriptions to avoid swallowing
+    // summary lines ("Total Cost Value: X Market Value on Y: Z") as transactions.
+    if (desc && DIVIDEND_RE.test(desc)) return {
+      date, desc,
+      amount: parseCasNum(m3[1]),
+      units: 0,
+      nav: parseCasNum(m3[2]),
+      balance: parseCasNum(m3[3]),
+      shape: 3,
+    };
+  }
+
+  // 2-col and 1-col fallbacks only accepted when the description hints at the shape
+  // (segregated portfolio / tax row). Without this guard, almost any text line with
+  // trailing numbers would match.
+  const T2 = /(-?\(?[\d,]+(?:\.\d+)?\)?)\s+(-?\(?[\d,]+(?:\.\d+)?\)?)\s*\*?\s*$/;
+  const m2 = T2.exec(rest);
+  if (m2) {
+    const desc = rest.slice(0, m2.index).trim();
+    if (desc && /segregated|side\s*pocket/i.test(desc)) return {
+      date, desc,
+      amount: parseCasNum(m2[1]),
+      units: 0, nav: 0,
+      balance: parseCasNum(m2[2]),
+      shape: 2,
+    };
+  }
+
+  const T1 = /(-?\(?[\d,]+(?:\.\d+)?\)?)\s*\*?\s*$/;
+  const m1 = T1.exec(rest);
+  if (m1) {
+    const desc = rest.slice(0, m1.index).trim();
+    if (desc && /\bstt\b|stamp\s*duty|\btds\b|tax\s*deducted/i.test(desc)) return {
+      date, desc,
+      amount: parseCasNum(m1[1]),
+      units: 0, nav: 0, balance: 0,
+      shape: 1,
+    };
+  }
+
+  return null;
+}
+
+function classifyTxn(desc) {
+  const d = (desc || '').toLowerCase();
+  // Reversals first — a rejected SIP / dishonoured cheque must not be
+  // treated as a purchase even though the description contains "purchase".
+  if (/reversal|rejection|dishonou?red|mismatch|insufficient\s*balance/.test(d)) return 'REVERSAL';
+  // Primary action verbs next. These MUST win over TAX/STAMP because CAMS
+  // descriptions like "Redemption less TDS, STT" or "Purchase - less stamp duty"
+  // embed tax keywords as suffixes. Classifying such a row as TAX would drop
+  // the main transaction's amount from the invested-sum reconciliation.
+  if (/switch\s*out|switch-out|merger.*out/.test(d)) return 'SWITCH_OUT';
+  if (/switch\s*in|switch-in|merger.*in/.test(d)) return 'SWITCH_IN';
+  if (/systematic\s*withdrawal|\bswp\b/.test(d)) return 'REDEMPTION';
+  if (/systematic\s*transfer|\bstp\s*out/.test(d)) return 'SWITCH_OUT';
+  if (/\bstp\s*in/.test(d)) return 'SWITCH_IN';
+  if (/systematic\s*(investment|purchase)/.test(d)) return 'SIP';
+  if (/instal+ment/.test(d)) return 'SIP';
+  if (/sys\.?\s*invest/.test(d)) return 'SIP';
+  if (/\bsip\b/.test(d)) return 'SIP';
+  if (/redemption|redeem/.test(d)) return 'REDEMPTION';
+  if (/(div\.?|dividend|idcw).*reinvest/.test(d)) return 'DIVIDEND_REINVEST';
+  if (/(div\.?|dividend|idcw)/.test(d)) return 'DIVIDEND_PAYOUT';
+  if (/segregated|side\s*pocket/.test(d)) return 'SEGREGATED';
+  if (/\bpurchase\b|allot/.test(d)) return 'PURCHASE';
+  // Tax/stamp classification only when no action verb matched — these are
+  // standalone charge rows like "*** Stamp Duty ***" or "*** STT Paid ***".
+  if (/stamp\s*duty/.test(d)) return 'STAMP_DUTY';
+  if (/\bstt\b|securities\s*transaction\s*tax/.test(d)) return 'TAX';
+  if (/\btds\b|tax\s*deducted/.test(d)) return 'TAX';
+  return 'OTHER';
+}
+function cleanSchemeName(raw) {
+  return (raw || '')
+    // pdf.js can fragment tokens: "( Non - Demat )" → tighten inner spaces
+    .replace(/\(\s+/g, '(')
+    .replace(/\s+\)/g, ')')
+    .replace(/\(([^)]+)\)/g, (m, inner) => '(' + inner.replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim() + ')')
+    .replace(/\s*\(Non-Demat\)\s*/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .replace(/^[-\s]+|[-\s]+$/g, '');
+}
+
+async function extractLines(pdf, opts = {}) {
+  const yBand = opts.yBand ?? Y_BAND_PT;
+  const columnGap = opts.columnGap ?? COLUMN_GAP_PT;
+  const rawLines = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const items = content.items.filter(it => it.str && it.transform);
+    if (!items.length) continue;
+    // Bucket into y-bands.
+    const bands = [];
+    for (const it of items) {
+      const y = it.transform[5];
+      let band = null;
+      for (const b of bands) {
+        if (Math.abs(b.y - y) <= yBand) { band = b; break; }
+      }
+      if (!band) { band = { y, items: [] }; bands.push(band); }
+      band.items.push(it);
+    }
+    // Sort bands top-down (descending y).
+    bands.sort((a, b) => b.y - a.y);
+    for (const band of bands) {
+      band.items.sort((a, b) => a.transform[4] - b.transform[4]);
+      let out = '';
+      let prevRight = null;
+      for (const it of band.items) {
+        const x = it.transform[4];
+        const w = it.width || 0;
+        if (prevRight == null) {
+          out = it.str;
+        } else {
+          const gap = x - prevRight;
+          if (gap >= columnGap) out += '\t\t' + it.str;
+          else if (gap > 0) out += ' ' + it.str;
+          else out += it.str;
+        }
+        prevRight = x + w;
+      }
+      // Normalize: collapse tab clusters (possibly wrapped by spaces) → \t\t;
+      // collapse multi-spaces → single space. Preserve \t\t as column boundary.
+      const text = out
+        .replace(/[ \t]*\t+[ \t]*/g, '\t\t')
+        .replace(/ {2,}/g, ' ')
+        .trim();
+      if (text) rawLines.push({ page: i, y: band.y, text });
+    }
+  }
+  return rawLines;
+}
+// Format detection — scans line text for depository / registrar marker strings.
+// Returns one of 'CAMS' | 'CDSL' | 'NSDL' | 'KFINTECH' | 'UNKNOWN'. Markers
+// are taken from codereverser/casparser's `parse_file_type` in parsers/mupdf.py.
+//
+// Order matters: CAMS is checked FIRST because CAMS CAS PDFs may incidentally
+// mention "Central Depository Services" or "NSDL" in footer disclaimers. The
+// `CAMSCASWS` / `camsonline.com` markers are unambiguous — if they're present,
+// the file is definitely a CAMS CAS. Same logic for KFintech after CAMS.
+function detectFormat(lines) {
+  const fullText = lines.map(l => l.text).join(' | ');
+  if (/CAMSCAS(?:WS)?|camsonline\.com/i.test(fullText)) return 'CAMS';
+  if (/KFINCAS|KFINTECH\s+Consolidated|WWW\.KFINTECH\.COM|mfs\.kfintech\.com/i.test(fullText)) return 'KFINTECH';
+  if (/Central\s+Depository\s+Services\s*\(India\)\s*Limited/i.test(fullText)) return 'CDSL';
+  if (/NSDL\s+Consolidated\s+Account\s+Statement|About\s+NSDL/i.test(fullText)) return 'NSDL';
+  return 'UNKNOWN';
+}
+// Pure function — takes pre-extracted lines and runs the full CAMS classifier.
+// Exposed so the fixture harness can feed hand-written line arrays without a PDF.
+function parseCAMSFromLines(lines, pageCount) {
+  pageCount = pageCount || 1;
+  const fullText = lines.map(l => l.text).join(' | ');
+
+  // Sanity-check: reject files that don't look like CAMS CAS before doing
+  // CAMS-specific parsing. This is a defensive backstop — the main router in
+  // parseCAS() already handled format dispatch, but tests may call this
+  // function directly with fixture lines.
+  if (!/CAMSCAS(?:WS)?|camsonline\.com/i.test(fullText)) {
+    throw Object.assign(new Error('Not a CAMS CAS.'), { code: 'UNSUPPORTED_FORMAT' });
+  }
+
+  // Summary vs Detailed CAS — only Detailed contains the transaction history
+  // we need. A Summary CAS has folios + scheme names but no per-txn rows,
+  // which silently produced "0 funds" before. Reject explicitly.
+  const casTypeM = /(Detailed|Summary)\s+Consolidated\s+Account\s+Statement/i.exec(fullText);
+  const explicitDetailed = casTypeM && /detailed/i.test(casTypeM[1]);
+  const explicitSummary = casTypeM && /summary/i.test(casTypeM[1]);
+  if (explicitSummary) {
+    throw Object.assign(
+      new Error('This appears to be a Summary CAS. Mitra needs a Detailed CAS — re-download from camsonline.com and choose "Detailed" (not "Summary").'),
+      { code: 'UNSUPPORTED_CAS_SUMMARY' }
+    );
+  }
+
+  const markersSeen = new Set();
+  markersSeen.add(/CAMSCASWS/i.test(fullText) ? 'CAMSCASWS' : 'CAMSCAS');
+  if (/camsonline\.com/i.test(fullText)) markersSeen.add('camsonline.com');
+  if (explicitDetailed) markersSeen.add('Detailed CAS');
+  if (/Segregated\s*Portfolio/i.test(fullText)) markersSeen.add('Segregated Portfolio');
+
+  let investorName = '';
+  let pan = '';
+  const funds = [];
+  const folios = [];
+  const pans = {};
+  let currentFund = null;
+  let currentAmc = '';
+  let currentFolio = '';
+  const warnings = [];
+  let rowsClassified = 0;
+  let rowsUnknown = 0;
+
+  const panRe = /\b([A-Z]{5}\d{4}[A-Z])\b/;
+  const amcRe = /^([A-Z][A-Za-z0-9 &().'-]+?)\s+(Mutual\s+Fund|MF)\s*$/;
+  const folioRe = /Folio\s*No\.?\s*:?\s*([\w\s\/\-]+?)(?=\s+PAN|\s+KYC|$)/i;
+  const isinRe = /ISIN\s*:?\s*([A-Z]{2}[A-Z0-9]{9}\d)\b/;
+  // Scheme line: no ^ anchor — pdf.js can prepend runs of whitespace or merged text.
+  const schemeRe = /([A-Z0-9]{1,10})-(.+?)\s*-\s*ISIN\s*:\s*[A-Z]{2}[A-Z0-9]{9}\d/;
+  const openingRe = /Opening\s+Unit\s+Balance\s*:?\s*([\-\(\)\d,\.]+)/i;
+  const closingRe = /Closing\s+Unit\s+Balance\s*:?\s*([\-\(\)\d,\.]+)/i;
+  const costRe = /Total\s+Cost\s+Value\s*:\s*([\-\(\)\d,\.]+)/i;
+  // Older CAMS statements use "Valuation on" in place of "Market Value on".
+  const marketRe = /(?:Market\s+Value|Valuation)\s+on\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s*:\s*INR\s*([\-\(\)\d,\.]+)/i;
+  const navRe = /NAV\s+on\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s*:\s*INR\s*([\-\(\)\d,\.]+)/i;
+  // Investor-name regex accepts optional titles (MR/MRS/SMT/MS/SHRI/DR/M/S)
+  // and trailing suffixes ((MINOR)/(HUF)/(KARTA)/(POA)). Broader than v1 which
+  // silently skipped joint/minor holders.
+  const nameCandidateRe = /^(?:(?:MR|MRS|SMT|MS|SHRI|DR|M\/S)\.?\s+)?[A-Z][A-Za-z]+(?:\s+(?:[A-Z]\.?|[A-Z][A-Za-z]+)){0,4}(?:\s*\((?:MINOR|HUF|KARTA|POA)\))?$/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const text = lines[i].text;
+
+    // PAN
+    // if (!pan) {
+    //   const m = panRe.exec(text);
+    //   if (m) pan = m[1];
+    // }
+    const m = panRe.exec(text);
+    if (m) {
+      pan = m[1];
+      if (!pans[pan]) pans[pan] = {
+        number: pan,
+        name: toTitleCase(lines[i + 1].text.trim()),
+      }
+    }
+
+    // AMC section heading
+    const amcLine = amcRe.exec(text);
+    if (amcLine) { currentAmc = amcLine[1].trim(); continue; }
+
+    // Folio — starts a new fund block
+    const folio = folioRe.exec(text);
+    if (folio) {
+      currentFolio = folio[1].replace(/\s+/g, '').trim();
+      currentFund = {
+        pan,
+        folioNumber: currentFolio,
+        amc: currentAmc,
+        schemeName: '',
+        isin: '',
+        category: '',
+        transactions: [],
+        openingBalance: 0,
+        closingBalance: null,
+        costValue: null,
+        marketValue: null,
+        casNav: null,
+        casNavDate: null,
+      };
+      funds.push(currentFund);
+      folios.push(currentFund);
+
+      // Investor name: scan the next few lines for a simple capitalized name
+      if (!investorName) {
+        for (let j = 1; j <= 3 && i + j < lines.length; j++) {
+          const cand = lines[i + j].text.trim();
+          if (nameCandidateRe.test(cand)) { investorName = toTitleCase(cand); break; }
+        }
+      }
+      continue;
+    }
+
+    // ISIN + scheme name — the CAMS scheme line looks like:
+    //   `<CODE>-<SCHEME NAME> - ISIN: <ISIN>(Advisor: ...) Registrar : ...`
+    // pdf.js sometimes splits this across lines, or inserts spaces between glyphs.
+    // Strategy: find the ISIN pattern on this line (tolerant of spaces), then extract
+    // the scheme name from the text preceding it — optionally joining up to 2 prior lines
+    // to cover the Registrar-line-wrap case where a long scheme name spans 3 y-bands.
+    if (currentFund) {
+      const candidates = [text.replace(/\t\t/g, ' ')];
+      if (i > 0) candidates.push((lines[i - 1].text + ' ' + text).replace(/\t\t/g, ' '));
+      if (i > 1) candidates.push((lines[i - 2].text + ' ' + lines[i - 1].text + ' ' + text).replace(/\t\t/g, ' '));
+      // Try each candidate — earlier candidates may capture the ISIN, later
+      // (longer) candidates may also capture the scheme name. Don't break early;
+      // a single-line ISIN match without enough context to recover the scheme
+      // name should not stop us from trying multi-line joins.
+      for (let cIdx = 0; cIdx < candidates.length; cIdx++) {
+        const cand = candidates[cIdx];
+        const isinTok = ISIN_TOLERANT_RE.exec(cand);
+        if (!isinTok) continue;
+        const isin = isinTok[1].replace(/\s+/g, '');
+        if (!isinCheckDigitValid(isin)) continue;
+        if (!currentFund.isin) currentFund.isin = isin;
+        if (!currentFund.schemeName) {
+          let before = cand.slice(0, isinTok.index).replace(/\s*-\s*$/, '').trim();
+          const codeMatch = SCHEME_CODE_RE.exec(before);
+          let afterCode = codeMatch ? before.slice(codeMatch[0].length) : before;
+          if (!codeMatch) {
+            const inline = /(?:^|\s)([A-Z0-9](?:\s*[A-Z0-9]){0,9})\s*-\s*(.+)$/.exec(before);
+            if (inline) afterCode = inline[2];
+          }
+          const cleaned = cleanSchemeName(afterCode);
+          if (cleaned.length > 6) {
+            currentFund.schemeName = cleaned;
+            if (cIdx > 0) markersSeen.add('Registrar line-wrap');
+          }
+        }
+        // Stop only once we have both isin and a usable scheme name.
+        if (currentFund.isin && currentFund.schemeName) break;
+      }
+    }
+
+    // Opening Unit Balance
+    if (currentFund) {
+      const om = openingRe.exec(text);
+      if (om) currentFund.openingBalance = parseCasNum(om[1]);
+    }
+
+    // Transaction row
+    if (currentFund) {
+      const t = tryExtractTxn(lines[i]);
+      if (t) {
+        const type = classifyTxn(t.desc);
+        currentFund.transactions.push({
+          pan,
+          folio: currentFolio,
+          date: parseCasDate(t.date),
+          description: t.desc,
+          type,
+          amount: t.amount,
+          units: t.units,
+          nav: t.nav,
+          balance: t.balance,
+          shape: t.shape,
+        });
+        if (type === 'OTHER') rowsUnknown++;
+        else rowsClassified++;
+        continue;
+      }
+      // Starts with a date but no shape matched — count as unknown so we can
+      // surface coverage gaps in parseMetadata.
+      if (/^\d{1,2}-[A-Za-z]{3}-\d{4}\b/.test(text.trim())) rowsUnknown++;
+    }
+
+    // Closing Unit Balance / cost / market / NAV — often on the same "footer" line
+    if (currentFund) {
+      const cm = closingRe.exec(text);
+      if (cm) currentFund.closingBalance = parseCasNum(cm[1]);
+      const tcv = costRe.exec(text);
+      if (tcv) currentFund.costValue = parseCasNum(tcv[1]);
+      const mkt = marketRe.exec(text);
+      if (mkt) {
+        currentFund.marketValue = parseCasNum(mkt[2]);
+        currentFund.casNavDate = parseCasDate(mkt[1]);
+        markersSeen.add(/Valuation/i.test(text) ? 'Valuation on' : 'Market Value on');
+      }
+      const navL = navRe.exec(text);
+      if (navL) { currentFund.casNav = parseCasNum(navL[2]); currentFund.casNavDate = parseCasDate(navL[1]); }
+    }
+  }
+
+  // Consolidate per fund: compute totalUnits + totalInvested.
+  //
+  // Summary-first model:
+  //   Portfolio-summary anchors (costValue, closingBalance, casNav) are the
+  //   source of truth for the dashboard. Transaction history is best-effort.
+  //   When transaction sums disagree with the summary, we keep the summary
+  //   and emit a soft warning — we never hard-fail on parse-history gaps.
+  //
+  // A fund is skipped only if it has *neither* a usable summary anchor *nor*
+  // transactions. A fund with cost/closing anchors but zero parsed transactions
+  // is still shown; we just note the missing history as a warning.
+  const finalFunds = [];
+  for (const f of funds) {
+    const hasAnchor = (f.costValue != null && f.costValue > 0) || (f.closingBalance != null && f.closingBalance >= 0);
+    if (!f.transactions.length && !hasAnchor) {
+      warnings.push(`Folio ${f.folioNumber}: no transactions or summary totals parsed`);
+      continue;
+    }
+    if (!f.schemeName) { warnings.push(`Folio ${f.folioNumber}: scheme name could not be identified`); continue; }
+
+    // Transaction-derived totals (best-effort). STAMP_DUTY counts toward
+    // cost because CAMS's "Total Cost Value" includes it. TAX (STT, TDS) is
+    // typically deducted from redemption proceeds rather than added to cost,
+    // so we leave it out.
+    let txnInvested = 0;
+    for (const t of f.transactions) {
+      if (['PURCHASE','SIP','SWITCH_IN','DIVIDEND_REINVEST','STAMP_DUTY'].includes(t.type)) txnInvested += t.amount;
+      else if (['REDEMPTION','SWITCH_OUT'].includes(t.type)) txnInvested -= Math.abs(t.amount);
+    }
+    let txnUnits = f.openingBalance || 0;
+    for (const t of f.transactions) {
+      if (['PURCHASE','SIP','SWITCH_IN','DIVIDEND_REINVEST'].includes(t.type)) txnUnits += t.units;
+      else if (['REDEMPTION','SWITCH_OUT'].includes(t.type)) txnUnits -= Math.abs(t.units);
+    }
+
+    // totalInvested: summary anchor wins; fall back to transaction sum.
+    let invested, investedSource;
+    if (f.costValue != null && f.costValue > 0) {
+      invested = f.costValue;
+      investedSource = 'summary';
+      // Soft warning when history materially disagrees with the summary.
+      // Suppress when the fund had a non-zero opening balance — the gap is
+      // expected in that case (pre-period purchases are outside the statement
+      // window), summary anchors remain authoritative, and the warning would
+      // just be noise.
+      const hasPrePeriodUnits = (f.openingBalance || 0) > 0;
+      if (f.transactions.length && !hasPrePeriodUnits && Math.abs(txnInvested - f.costValue) > 1) {
+        warnings.push(
+          `${f.schemeName}: transaction history incomplete (sum ${Math.round(txnInvested).toLocaleString('en-IN')} vs summary ${Math.round(f.costValue).toLocaleString('en-IN')}) — summary totals used`
+        );
+      }
+    } else {
+      invested = txnInvested;
+      investedSource = 'transactions';
+      warnings.push(`${f.schemeName || f.folioNumber}: summary "Total Cost Value" not found — computed from transactions`);
+    }
+
+    // totalUnits: closing-balance anchor wins; fall back to last running balance; last resort, recompute.
+    let units, unitsSource;
+    if (f.closingBalance != null && f.closingBalance >= 0) {
+      units = f.closingBalance;
+      unitsSource = 'summary';
+    } else {
+      const last = f.transactions[f.transactions.length - 1];
+      if (last && !isNaN(last.balance) && last.balance >= 0) {
+        units = last.balance;
+        unitsSource = 'last-txn-balance';
+      } else {
+        units = txnUnits;
+        unitsSource = 'transactions';
+      }
+      warnings.push(`${f.schemeName || f.folioNumber}: summary "Closing Unit Balance" not found — computed from transactions`);
+    }
+
+    finalFunds.push({
+      ...f,
+      totalUnits: units,
+      totalInvested: invested,
+      investedSource,
+      unitsSource,
+    });
+  }
+
+  // Consolidate across multiple folios under same ISIN (PRD 11: multi-folio auto-merge)
+  const byKey = new Map();
+  for (const f of finalFunds) {
+    const key = f.isin || f.schemeName.toLowerCase();
+    if (!byKey.has(key)) {
+      byKey.set(key, { ...f, folios: [f.folioNumber], transactions: [...f.transactions] });
+    } else {
+      const agg = byKey.get(key);
+      agg.folios.push(f.folioNumber);
+      agg.totalUnits += f.totalUnits;
+      agg.totalInvested += f.totalInvested;
+      if (f.marketValue != null) agg.marketValue = (agg.marketValue || 0) + f.marketValue;
+      if (f.casNav && !agg.casNav) { agg.casNav = f.casNav; agg.casNavDate = f.casNavDate; }
+      agg.transactions.push(...f.transactions);
+    }
+  }
+
+  // Sort each fund's transactions by date
+  const merged = [...byKey.values()].map(f => {
+    f.transactions.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    return f;
+  });
+
+  // Debug aid: if nothing landed, dump the lines we saw.
+  if (!merged.length) {
+    console.warn('[Mitra] parser produced no funds. Sample of extracted lines:');
+    for (let i = 0; i < Math.min(lines.length, 80); i++) {
+      console.log(`L${i.toString().padStart(3,'0')}:`, JSON.stringify(lines[i].text));
+    }
+  }
+
+  const parseMetadata = {
+    version: explicitDetailed ? 'CAMS-DETAILED' : 'CAMS-DETAILED-INFERRED',
+    markersSeen: [...markersSeen].sort(),
+    rowsClassified,
+    rowsUnknown,
+    lineCount: lines.length,
+    pageCount,
+    fundCount: merged.length,
+    parsedAt: new Date().toISOString(),
+  };
+
+  return {
+    // investorName,
+    // pan,
+    funds: merged,
+    warnings,
+    parseMetadata,
+    rawLines: lines,  // for diagnostic export (sanitized before persistence)
+    pans,
+    folios,
+  };
+}
+async function parseCAS(file, password) {
+  // const pdfjsLib = await loadPdfJs();
+  const ab = await file.arrayBuffer();
+  let pdf;
+  try {
+    const task = pdfjsLib.getDocument({ data: ab, password });
+    pdf = await task.promise;
+  } catch (e) {
+    if (e?.name === 'PasswordException') {
+      const code = e.code;
+      // 1 = NEED_PASSWORD (first prompt), 2 = INCORRECT_PASSWORD (wrong guess)
+      if (code === 1) throw Object.assign(new Error(''), { code: 'NEED_PASSWORD' });
+      throw Object.assign(new Error('Incorrect password. Please check your PAN and date of birth format.'), { code: 'INCORRECT_PASSWORD' });
+    }
+    throw Object.assign(new Error(e?.message || 'Could not open PDF.'), { code: 'PDF_ERROR' });
+  }
+
+  // Probe extraction with CAMS-tuned bands (3pt). Format markers are plain text
+  // so detection is robust regardless of extraction tolerances.
+  const probe = await extractLines(pdf);
+  const format = detectFormat(probe);
+
+  if (format === 'KFINTECH') {
+    throw Object.assign(
+      new Error('KFintech statements are not supported yet. CAMS, CDSL, and NSDL are supported.'),
+      { code: 'UNSUPPORTED_KFINTECH' }
+    );
+  }
+  if (format === 'UNKNOWN') {
+    throw Object.assign(
+      new Error('This does not look like a supported statement. Mitra supports CAMS, CDSL, and NSDL CAS PDFs.'),
+      { code: 'UNSUPPORTED_FORMAT' }
+    );
+  }
+  if (format === 'CAMS') return parseCAMSFromLines(probe, pdf.numPages);
+  // Depository (CDSL / NSDL). These PDFs use looser baselines — re-extract
+  // with a 7pt y-band per casparser's tolerance table.
+  const lines = await extractLines(pdf, { yBand: 7, columnGap: 4 });
+  return parseDepositoryFromLines(lines, format, pdf.numPages);
+}
+// #endregion CAS Parser
+
+
+
+// #region COMPONENTS
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  componentDidCatch(error, info) {
+    this.setState({ hasError: true, error });
+    console.error(error);
+    console.error(info);
+  }
+  render() {
+    if (this.state.hasError) return <div>Something went wrong: <pre>{this.state.error.message} {this.state.error.stack}</pre></div>;
+    return this.props.children;
+  }
+}
+
+function PANSelector({ panAccounts, selectedPANs, onSelectionChange }) {
+  const handleToggle = (pan) => {
+    if (selectedPANs.includes(pan)) {
+      onSelectionChange(selectedPANs.filter(p => p !== pan));
+    } else {
+      onSelectionChange([...selectedPANs, pan]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onSelectionChange(Object.keys(panAccounts));
+  };
+
+  const handleClearAll = () => {
+    onSelectionChange([]);
+  };
+
+  return (
+    <div className="pan-selector">
+      <div className="pan-options">
+        {Object.entries(panAccounts).map(([pan, account]) => (
+          <label
+            key={pan}
+            className={`pan-option ${selectedPANs.includes(pan) ? 'selected' : ''}`}
+          >
+            <input
+              type="checkbox"
+              checked={selectedPANs.includes(pan)}
+              onChange={() => handleToggle(pan)}
+            />
+            <div>
+              <div style={{ fontWeight: 600 }}>{account.name}</div>
+              <div style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{pan}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+      <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+        {/*
+        <button className="btn btn-secondary" onClick={handleSelectAll}>Select All</button>
+        <button className="btn btn-secondary" onClick={handleClearAll}>Clear All</button>
+        */}
+      </div>
+    </div>
+  );
+}
+
+function calculateXirr(cashflows) {
+  if (cashflows.length < 2) return null;
+  const sorted = [...cashflows].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const t0 = new Date(sorted[0].date).getTime();
+  const years = sorted.map(cf => (new Date(cf.date).getTime() - t0) / (365.25 * 24 * 3600 * 1000));
+  const amounts = sorted.map(cf => cf.amount);
+  const npv = r => amounts.reduce((s, a, i) => s + a / Math.pow(1 + r, years[i]), 0);
+  const dnpv = r => amounts.reduce((s, a, i) => s - (years[i] * a) / Math.pow(1 + r, years[i] + 1), 0);
+  let rate = 0.1;
+  for (let i = 0; i < 100; i++) {
+    const v = npv(rate), dv = dnpv(rate);
+    if (Math.abs(v) < 1e-7 || dv === 0) break;
+    rate -= v / dv;
+    if (rate <= -1) rate = -0.999;
+  }
+  return !isFinite(rate) || isNaN(rate) ? null : rate;
+}
+
+function calculateStats(folios) {
+  const marketValue = folios.reduce((acc, item) => acc += item.marketValue, 0)
+  const invested = folios.reduce((acc, item) => acc += item.costValue, 0)
+  const units = folios.reduce((acc, item) => acc += item.closingBalance, 0)
+  const transactionsCount = folios.reduce((acc, item) => acc += item.transactions.length, 0)
+  const pnl = marketValue - invested
+  const pnlPercentage = pnl / invested * 100
+
+  // TODO: average NAV
+  // TODO: fix XIRR
+
+  const cashflows = []
+  folios.forEach(folio => {
+    if (folio.transactions && folio.transactions.length > 0) {
+      folio.transactions.forEach(txn => {
+        if (!txn.date || txn.amount === 0) return;
+        
+        let cashflowAmount = txn.amount;
+        
+        if (txn.type === 'PURCHASE' || txn.type === 'SIP') {
+          cashflowAmount = -Math.abs(cashflowAmount);
+        } else if (txn.type === 'REDEMPTION' || txn.type === 'DIVIDEND') {
+          cashflowAmount = Math.abs(cashflowAmount);
+        } else if (txn.type === 'REVERSAL') {
+          cashflowAmount = Math.abs(cashflowAmount);
+        } else {
+          // TODO: calculate cashflows
+          // cashflowAmount = txn.units > 0 ? -Math.abs(cashflowAmount) : Math.abs(cashflowAmount);
+          // cashflowAmount = 0
+          cashflowAmount = -cashflowAmount
+        }
+        
+        cashflows.push({ date: txn.date, amount: cashflowAmount });
+        
+        // // For current XIRR, only include if folio is currently held
+        // if (isCurrentlyHeld) {
+        //   folioCurrentCashflows.push({ date: txn.date, amount: cashflowAmount });
+        // }
+      });
+    }
+    // if (folioMarketValue > 0 && folio.casNavDate) {
+    //   cashflows.push({ date: folio.casNavDate, amount: folioMarketValue });
+    //   folioCurrentCashflows.push({ date: folio.casNavDate, amount: folioMarketValue });
+    // }
+    cashflows.push({ date: folio.casNavDate, amount: folio.marketValue });
+    // folioCurrentCashflows.push({ date: folio.casNavDate, amount: folioMarketValue });
+  })
+  const xirrValue = calculateXirr(cashflows)
+  const xirrPercentage = xirrValue !== null ? xirrValue * 100 : null;
+
+  const stats = {
+    marketValue,
+    invested,
+    pnl,
+    pnlPercentage,
+    xirr: xirrPercentage,
+    units,
+    transactionsCount,
+  }
+  return stats;
+}
+function calculatePortfolioStats(casData, selectedPANs) {
+  const selectedFolios = casData.folios.filter(folio => selectedPANs.includes(folio.pan))
+  console.log('selectedFolios:', selectedFolios)
+
+  const overallStats = {
+    ...calculateStats(selectedFolios),
+  }
+
+  const fundStats = []
+  // group folios by funds and pan
+  const byFund = Object.groupBy(selectedFolios, ({ isin, schemeName }) => isin+': '+schemeName)
+  console.log(byFund)
+  Object.entries(byFund).forEach(([fundId, fundFolios]) => {
+    console.log(fundId, fundFolios)
+    const fundIsin = fundFolios[0].isin
+
+    const fundItem = {
+      amc: fundFolios[0].amc,
+      fundName: fundFolios[0].schemeName,
+      isin: fundFolios[0].isin,
+      stats: {
+        nav: fundFolios[0].casNav,
+        navDate: fundFolios[0].casNavDate,
+        ...calculateStats(fundFolios),
+      },
+      pans: {},
+    }
+    const byPan = Object.groupBy(fundFolios, ({ pan }) => pan)
+    Object.entries(byPan).forEach(([panNumber, panFolios]) => {
+      console.log(' ', panNumber, panFolios)
+      const panItem = {
+        panName: casData.pans[panNumber].name,
+        panNumber,
+        stats: {
+          ...calculateStats(panFolios),
+          transactions: [],
+        },
+        folios: {},
+      }
+      panFolios.forEach(folio => {
+        console.log(' ', ' ', folio.folioNumber, folio)
+        const folioItem = {
+          folioNumber: folio.folioNumber,
+          stats: {
+            ...calculateStats([folio]),
+            openingBal: folio.openingBalance,
+            nav: folio.casNav,
+            navDate: folio.casNavDate,
+          },
+          transactions: folio.transactions,
+        }
+        panItem.folios[folio.folioNumber] = folioItem
+
+      })
+
+      // #region test totals
+      const panTxns = []
+      panFolios.forEach(fol => {
+        panTxns.push(...fol.transactions)
+      })
+      console.log(' ', ' ', ' ', panTxns.length, panTxns)
+      panItem.txns = panTxns
+      panItem.test = Object.fromEntries(Object.entries(Object.groupBy(panTxns, ({ type }) => type)).map(([type, txns]) => {
+        console.log(' ', ' ', ' ', type, )
+        // return { type, value: +formatNumber(txns.reduce((acc, item) => acc += item.amount, 0), 0)}
+        return [type, +formatNumber(txns.reduce((acc, item) => acc += item.amount, 0), 0)]
+      }))
+      // #endregion test totals
+
+
+      fundItem.pans[panNumber] = panItem
+    })
+    fundStats.push(fundItem)
+  })
+  console.log(fundStats)
+
+  const stats = {
+    funds: fundStats,
+    overallStats,
+  }
+  return stats
+}
+
+function formatNumber(value, dec = 2) {
+  if (value === undefined || value === null) return '-';
+  return value.toFixed(dec);
+}
+
+function formatCurrency(value, dec = 0) {
+  if (value === undefined || value === null) return '₹0';
+  return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: dec });
+}
+
+function formatPercentage(value) {
+  if (value === undefined || value === null) return '-';
+  return value.toFixed(2) + '%';
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function StatsCard({ stats }) {
+  return (
+    <>
+      <div className="">
+        <span className="stats-value stats-market-value">{formatCurrency(stats.marketValue)}</span>
+
+        <span className="stats-invested" style={{ marginLeft: 10 }}>
+          (<span className="stats-label">INV</span><span className="stats-value">{formatCurrency(stats.invested)}</span>)
+        </span>
+      </div>
+
+
+      <div>
+        <span className="stats-pnl">
+          <span className="stats-label">P&L</span>
+          <span className={`stats-value ${stats.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>{formatCurrency(stats.pnl)} ({formatPercentage(stats.pnlPercentage)})</span>
+        </span>
+
+        <span className="stats-xirr" style={{ marginLeft: 10 }}>
+          <span className="stats-label">XIRR</span>
+          <span className={`stats-value ${stats.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>{formatPercentage(stats.xirr)}</span>
+        </span>
+      </div>
+
+      {stats.nav &&
+        <div className="stats-nav">
+          <span className="stats-label">NAV</span>
+          <span className="stats-value">{formatCurrency(stats.nav, 3)} on {formatDate(stats.navDate)}</span>
+          </div>
+      }
+
+      {stats.units &&
+        <div className="stats-units">
+          <span className="stats-label">Units</span>
+          <span className="stats-value">{formatNumber(stats.units, 3)}</span>
+        </div>
+      }
+    </>
+  )
+}
+function FundCard({ fund }) {
+  const [expanded, setExpanded] = useState(false);
+  const [showTransactions, setShowTransactions] = useState(true);
+
+  // TODO: show transaction history
+
+  return (
+    <div className="fund-card">
+      <div className="fund-header" onClick={() => setExpanded(!expanded)}>
+        <div className="fund-name">
+          <h3>{fund.fundName}</h3>
+          <span className="amc">{fund.amc}</span>
+          <span className={`expand-icon ${expanded ? 'expanded' : ''}`}>▼</span>
+        </div>
+        <div className="fund-stats">
+          <StatsCard stats={{ ...fund.stats, units: null }} level="fund" />
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="fund-details">
+          {Object.values(fund.pans).map(pan => (
+            <div key={pan.panNumber} className="pan-section">
+              <div className="pan-header">
+                {pan.panName} ({pan.panNumber})
+              </div>
+              <div className="pan-stats">
+                <StatsCard stats={pan.stats} level="pan" />
+              </div>
+
+              <details>
+                <summary>Test</summary>
+                <pre>{pan.test && JSON.stringify(pan.test, null, 2)}</pre>
+              </details>
+
+              <details>
+                <summary>Folios</summary>
+                <table className="folios-table">
+                  <thead>
+                    <tr>
+                      <th>Folio</th>
+                      <th className="number">Units</th>
+                      <th className="number">Invested</th>
+                      <th className="number">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.values(pan.folios).map((folio, i) => (
+                      <React.Fragment key={folio.folioNumber}>
+                      <tr>
+                        <td>{folio.folioNumber}</td>
+                        <td className="number">{formatNumber(folio.stats.units, 3)}</td>
+                        <td className="number">{formatCurrency(folio.stats.invested)}</td>
+                        <td className="number">{formatCurrency(folio.stats.marketValue)}</td>
+                      </tr>
+                      <tr>
+                        <td colSpan="4">
+                          <div>
+                            {Object.entries(Object.groupBy(folio.transactions, ({ type }) => type)).map(([type, txns]) => {
+                              return (
+                                <div key={type}>
+                                  <details>
+                                    <summary>{type} {formatCurrency(txns.reduce((acc, item) => acc += item.amount, 0))}</summary>
+                                    {[...txns].reverse().map((txn, i) => {
+                                      return (
+                                        <div key={i} style={{fontSize: 10}}>
+                                          <div>
+                                            <div>
+                                              <span style={{marginRight: 10}}>{formatDate(txn.date)}</span>
+                                              <span style={{fontWeight: 'bold', marginRight: 10}}>{txn.type}</span>
+                                              <span style={{marginRight: 10}}>{formatCurrency(txn.amount, 2)}</span>
+                                              <span style={{}}>{formatNumber(txn.units, 3)}</span> @ <span style={{}}>{formatCurrency(txn.nav)}</span>
+                                            </div>
+                                            <div style={{borderBottom: '1px solid #ddd'}}>
+                                            </div>
+                                          </div>
+                                          {/*<pre>{JSON.stringify(txn, null, 2)}</pre>*/}
+                                        </div>
+                                      )
+                                    })}
+                                  </details>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </details>
+
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+function Dashboard({ casData, onReset }) {
+  const [selectedPANs, setSelectedPANs] = useState(Object.keys(casData.pans));
+  const [stats, setStats] = useState(null);
+  const [sortBy, setSortBy] = useState('marketValue');
+  const [sortDirection, setSortDirection] = useState('desc');
+
+  console.log('casData:', casData)
+  useEffect(() => {
+    if (selectedPANs.length > 0) {
+      const calculatedStats = calculatePortfolioStats(casData, selectedPANs);
+      setStats(calculatedStats);
+    } else {
+      setStats(null);
+    }
+  }, [casData, selectedPANs]);
+
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+  };
+
+  const sortedFunds = stats?.funds ? [...stats.funds].sort((a, b) => {
+    let aVal, bVal;
+    
+    switch(sortBy) {
+      case 'name':
+        aVal = a.fundName.toLowerCase();
+        bVal = b.fundName.toLowerCase();
+        return sortDirection === 'asc' 
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      case 'invested':
+        aVal = a.stats.invested;
+        bVal = b.stats.invested;
+        break;
+      case 'marketValue':
+        aVal = a.stats.marketValue;
+        bVal = b.stats.marketValue;
+        break;
+      case 'pnl':
+        aVal = a.stats.pnl;
+        bVal = b.stats.pnl;
+        break;
+      case 'pnlPercentage':
+        aVal = a.stats.pnlPercentage;
+        bVal = b.stats.pnlPercentage;
+        break;
+      case 'xirr':
+        aVal = a.stats.xirr || 0;
+        bVal = b.stats.xirr || 0;
+        break;
+      default:
+        aVal = a.stats.marketValue;
+        bVal = b.stats.marketValue;
+    }
+    
+    return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+  }) : [];
+  console.log('sortedFunds:', sortedFunds)
+
+  return (
+    <>
+      <div className="header">
+        <h1>Mutual Fund Portfolio</h1>
+        <p style={{ color: 'var(--gray-600)' }}>Track your investments across funds and folios</p>
+        <div className="header-actions">
+          <button className="btn btn-danger" onClick={onReset}>
+            Clear Data & Upload New
+          </button>
+        </div>
+      </div>
+
+      <details>
+        <summary>casData</summary>
+        <pre><code>{JSON.stringify(casData, null, 2)}</code></pre>
+      </details>
+      <details>
+        <summary>sortedFunds</summary>
+        <pre><code>{JSON.stringify(sortedFunds, null, 2)}</code></pre>
+      </details>
+      <details>
+        <summary>casData.folios</summary>
+        <div>
+          {casData?.folios && casData.folios.map(f => {
+            return (
+              <div key={f.isin+f.folioNumber}>
+                <div>{f.amc}</div>
+                <div>{f.folioNumber} {f.pan}</div>
+                <div>{f.schemeName}</div>
+                <div>Opening Balance: {f.openingBalance}</div>
+                <div>NAV on {f.casNavDate}: INR {f.casNav}</div>
+                <div>Closing Unit Balance: {f.closingBalance}</div>
+                <div>Total Cost Value: {f.costValue}</div>
+                <div>Market Value: {f.marketValue}</div>
+                <hr />
+              </div>
+            )
+          })}
+        </div>
+      </details>
+
+      <PANSelector
+        panAccounts={casData.pans}
+        selectedPANs={selectedPANs}
+        onSelectionChange={setSelectedPANs}
+      />
+      {selectedPANs.length === 0 && (
+        <div className="upload-section">
+          <h2>No PANs Selected</h2>
+          <p>Please select at least one PAN account to view your portfolio</p>
+        </div>
+      )}
+
+      {stats && selectedPANs.length > 0 && (
+        <>
+          {/*<StatsOverview stats={stats.overall} />*/}
+          <StatsCard stats={{ ...stats.overallStats, units: null }} level="overall" />
+
+          <div className="funds-section">
+            <div className="funds-header">
+              <h2>Funds ({stats.funds.length})</h2>
+              <div className="sort-controls">
+                <span className="sort-label">Sort by:</span>
+                <select 
+                  className="sort-select" 
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <option value="name">Fund Name</option>
+                  <option value="invested">Invested</option>
+                  <option value="marketValue">Market Value</option>
+                  <option value="pnl">P&L (Absolute)</option>
+                  <option value="pnlPercentage">P&L %</option>
+                  <option value="xirr">XIRR</option>
+                </select>
+                <button 
+                  className="sort-direction-btn" 
+                  onClick={toggleSortDirection}
+                  title={sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+                >
+                  {sortDirection === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
+            </div>
+
+            {sortedFunds.map(fund => (
+              <FundCard key={fund.isin} fund={fund} />
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+function UploadSection({ onUploadComplete }) {
+  const [file, setFile] = useState(null);
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile && selectedFile.type === 'application/pdf') {
+      setFile(selectedFile);
+      setError(null);
+    } else {
+      setError('Please select a valid PDF file');
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Please select a file');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    onUploadComplete(file, password);
+    setLoading(false);
+    // handle parsing in main App
+    // try {
+    //   // const arrayBuffer = await file.arrayBuffer();
+    //   const parsedData = await parseCAS(file, password || undefined);
+    //   console.log({parsedData})
+    //   await saveData('casData', parsedData);
+    //   // TODO: add AMFI code to funds
+    //   onUploadComplete(parsedData);
+    // } catch (err) {
+    //   console.error(err)
+    //   setError('Failed to parse CAS file: ' + err.message + ' ' + err.stack);
+    // } finally {
+    //   setLoading(false);
+    // }
+  };
+
+  return (
+    <div className="upload-section">
+      {error && <div className="error-message">{error}</div>}
+      
+      <h2>Upload CAS Statement</h2>
+      <p>Upload your CAMS Consolidated Account Statement (PDF) to get started</p>
+      
+      <div className="file-input-wrapper">
+        <input
+          type="file"
+          id="cas-file"
+          className="file-input"
+          accept=".pdf"
+          onChange={handleFileChange}
+        />
+        <label htmlFor="cas-file" className="file-label">
+          {file ? file.name : 'Choose PDF File'}
+        </label>
+      </div>
+      
+      {file && (
+        <div style={{ marginTop: '16px' }}>
+          <input
+            type="password"
+            className="password-input"
+            placeholder="Password (PAN + DOB: ABCDE1234F01011990)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          
+          <div style={{ marginTop: '16px' }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleUpload}
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : 'Upload & Parse'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// #endregion COMPONENTS
+
+function App() {
+  const [casData, setCasData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData('casData')
+      .then(data => {
+        if (data) {
+          setCasData(data);
+        }
+      })
+      .catch(err => console.error('Failed to load data:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+
+  const handleUploadComplete = async (file, password) => {
+    try {
+      // const arrayBuffer = await file.arrayBuffer();
+      const parsedData = await parseCAS(file, password || undefined);
+      console.log('parsedData:', parsedData)
+      await saveData('casData', parsedData);
+      // TODO: add AMFI code to funds
+      // onUploadComplete(parsedData);
+      setCasData(parsedData);
+    } catch (err) {
+      console.error(err)
+      setError('Failed to parse CAS file: ' + err.message + ' ' + err.stack);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const handleReset = async () => {
+    if (confirm('Are you sure you want to clear all data?')) {
+      await clearAllData();
+      setCasData(null);
+    }
+  };
+
+  if (new URLSearchParams(window.location.search).has('reset') && casData) handleReset()
+
+  if (loading) {
+    return (
+      <div className="app">
+        <div className="loading">
+          <div className="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app">
+      {!casData
+        ? (<UploadSection onUploadComplete={handleUploadComplete} />)
+        : ( <Dashboard casData={casData} onReset={handleReset} />)
+      }
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
+</script>
+</body>
+</html>
