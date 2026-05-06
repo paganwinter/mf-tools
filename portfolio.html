@@ -38,7 +38,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  /* background: var(--gray-50); */
+  background: var(--gray-50);
   color: var(--gray-900);
   line-height: 1.6;
 }
@@ -46,30 +46,17 @@ body {
 .app {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 12px;
 }
 
-.header {
+/* .header {
   background: white;
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   margin-bottom: 24px;
 }
-
-.header h1 {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--gray-900);
-  margin-bottom: 8px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-  flex-wrap: wrap;
-}
+ */
 
 .btn {
   padding: 10px 20px;
@@ -194,7 +181,7 @@ body {
 
 .pan-selector {
   background: white;
-  padding: 20px;
+  padding: 12px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   margin-bottom: 24px;
@@ -217,7 +204,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 5px 10px;
   background: var(--gray-50);
   border: 2px solid var(--gray-200);
   border-radius: 8px;
@@ -310,36 +297,36 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   margin-bottom: 20px;
   overflow: hidden;
+  border: 1px solid var(--gray-300);
+  padding: 0px;
 }
 
 .fund-header {
-  padding: 20px;
-  background: var(--gray-50);
+  padding: 8px;
   border-bottom: 1px solid var(--gray-200);
   cursor: pointer;
-  /* display: flex; */
-  justify-content: space-between;
-  align-items: center;
+  transition: background 0.2s;
 }
 
 .fund-header:hover {
-  background: var(--gray-100);
+  background: var(--gray-50);
 }
 
 .fund-name {
-  /* flex: 1; */
+  width: 100%;
 }
 
 .fund-name h3 {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--gray-900);
-  margin-bottom: 4px;
+  margin: 0;
 }
 
-.fund-name .amc {
-  font-size: 13px;
+.fund-meta {
+  font-size: 11px;
   color: var(--gray-500);
+  opacity: 0.8;
 }
 .stats-label {
   margin-right: 5px;
@@ -458,17 +445,20 @@ body {
 
   .fund-stat-inline {
     min-width: 80px;
-  } */
+  }
+  */
 
-  .funds-header {
+  /* .funds-header {
     flex-direction: column;
     align-items: flex-start;
-  }
+  } */
 
+  /*
   .sort-controls {
     width: 100%;
     justify-content: flex-start;
   }
+  */
 
   .folios-table {
     font-size: 12px;
@@ -484,6 +474,23 @@ body {
 <body>
 <div id="root"></div>
 
+<!--
+<script>
+  // Configure Babel to generate inline source maps
+  window.Babel = window.Babel || {};
+  window.Babel.registerPreset = window.Babel.registerPreset || function() {};
+  
+  // Set default transform options
+  const originalTransform = window.Babel.transform;
+  window.Babel.transform = function(code, options) {
+    return originalTransform(code, {
+      ...options,
+      sourceMaps: 'inline',
+      sourceFileName: options?.sourceFileName || 'inline-script.jsx'
+    });
+  };
+</script>
+-->
 <script type="text/babel">
 const { useState, useEffect, useCallback } = React;
 
@@ -1039,8 +1046,8 @@ function parseCAMSFromLines(lines, pageCount) {
       if (t) {
         const type = classifyTxn(t.desc);
         currentFund.transactions.push({
-          pan,
-          folio: currentFolio,
+          // pan,
+          // folio: currentFolio,
           date: parseCasDate(t.date),
           description: t.desc,
           type,
@@ -1260,15 +1267,48 @@ async function parseCAS(file, password) {
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
   componentDidCatch(error, info) {
-    this.setState({ hasError: true, error });
-    console.error(error);
-    console.error(info);
+    this.setState({ hasError: true, error, errorInfo: info });
+    console.group('❌ Error Caught by ErrorBoundary');
+    console.error('Error:', error);
+    console.error('Component Stack:', info.componentStack);
+    console.error('Full Stack:', error.stack);
+    console.groupEnd();
   }
   render() {
-    if (this.state.hasError) return <div>Something went wrong: <pre>{this.state.error.message} {this.state.error.stack}</pre></div>;
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', background: '#fee', border: '2px solid #f00', margin: '20px' }}>
+          <h2>❌ Error Occurred</h2>
+          <details open style={{ marginTop: '12px' }}>
+            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Error Message</summary>
+            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto' }}>
+              {this.state.error.message}
+            </pre>
+          </details>
+          <details style={{ marginTop: '12px' }}>
+            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Stack Trace</summary>
+            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto', fontSize: '11px' }}>
+              {this.state.error.stack}
+            </pre>
+          </details>
+          <details style={{ marginTop: '12px' }}>
+            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Component Stack</summary>
+            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto', fontSize: '11px' }}>
+              {this.state.errorInfo?.componentStack}
+            </pre>
+          </details>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{ marginTop: '12px', padding: '8px 16px', cursor: 'pointer' }}
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
     return this.props.children;
   }
 }
@@ -1291,7 +1331,7 @@ function PANSelector({ panAccounts, selectedPANs, onSelectionChange }) {
   };
 
   return (
-    <div className="pan-selector">
+    <>
       <div className="pan-options">
         {Object.entries(panAccounts).map(([pan, account]) => (
           <label
@@ -1304,19 +1344,18 @@ function PANSelector({ panAccounts, selectedPANs, onSelectionChange }) {
               onChange={() => handleToggle(pan)}
             />
             <div>
-              <div style={{ fontWeight: 600 }}>{account.name}</div>
-              <div style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{pan}</div>
+              <span style={{ fontWeight: 600 }}>{account.name.split(' ')[0].slice(0, 3)}</span> <span style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{pan.slice(0, 3)}***</span>
             </div>
           </label>
         ))}
       </div>
+      {/*
       <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-        {/*
         <button className="btn btn-secondary" onClick={handleSelectAll}>Select All</button>
         <button className="btn btn-secondary" onClick={handleClearAll}>Clear All</button>
-        */}
       </div>
-    </div>
+      */}
+    </>
   );
 }
 
@@ -1338,13 +1377,33 @@ function calculateXirr(cashflows) {
   return !isFinite(rate) || isNaN(rate) ? null : rate;
 }
 
-function calculateStats(folios) {
-  const marketValue = folios.reduce((acc, item) => acc += item.marketValue, 0)
-  const invested = folios.reduce((acc, item) => acc += item.costValue, 0)
+function calculateStats_(folios, fundDetails) {
+  const nav = fundDetails?.nav;
+  const navDate = fundDetails?.navDate;
+  const navCas = folios[0].casNav
+  const navDateCas = folios[0].casNavDate
+
   const units = folios.reduce((acc, item) => acc += item.closingBalance, 0)
-  const transactionsCount = folios.reduce((acc, item) => acc += item.transactions.length, 0)
+  const marketValueCas = folios.reduce((acc, item) => acc += item.marketValue, 0)
+  const marketValue = fundDetails?.nav ? units * fundDetails?.nav : marketValueCas
+  const investedCas = folios.reduce((acc, item) => acc += item.costValue, 0)
+  const invested = investedCas
+
+  const transactions = folios.reduce((acc, item) => [...acc, ...item.transactions], [])
+  const transactionsCount = transactions.length // folios.reduce((acc, item) => acc += item.transactions.length, 0)
+
   const pnl = marketValue - invested
-  const pnlPercentage = pnl / invested * 100
+  const pnlPercentage = (pnl / invested) * 100
+
+  // console.log(transactions)
+  const transactionsByType = Object.entries(Object.groupBy(transactions, ({ type }) => type)).map(([type, txns]) => {
+    return {
+      type,
+      total: txns.reduce((acc, item) => acc += item.amount, 0),
+      transactions: txns,
+    }
+  })
+
 
   // TODO: average NAV
   // TODO: fix XIRR
@@ -1389,61 +1448,158 @@ function calculateStats(folios) {
   const xirrPercentage = xirrValue !== null ? xirrValue * 100 : null;
 
   const stats = {
+    nav,
+    navDate,
+    navCas,
+    navDateCas,
+    units,
     marketValue,
+    marketValueCas,
     invested,
     pnl,
     pnlPercentage,
     xirr: xirrPercentage,
-    units,
+    // transactions,
     transactionsCount,
+    // transactionsByType,
   }
   return stats;
 }
-function calculatePortfolioStats(casData, selectedPANs) {
+function calculateStats(folios, fundsList) {
+  const unitsCas = folios.reduce((acc, item) => acc += item.closingBalance, 0)
+  const units = unitsCas
+  const costValueCas = folios.reduce((acc, item) => acc += item.costValue, 0)
+  const costValue = costValueCas
+  const invested = costValue
+  const marketValueCas = folios.reduce((acc, item) => acc += item.marketValue, 0)
+
+  let marketValue = 0
+  let cashflows = []
+  folios.forEach(folio => {
+    const fundDetails = fundsList.find(f => f.isin === folio.isin)
+
+    let fundNav
+    let fundNavDate
+    if (fundDetails?.nav) {
+      fundNav = fundDetails.nav
+      fundNavDate = fundDetails.navDate
+    } else {
+      fundNav = folio.casNav
+      fundNavDate = folio.casNavDate
+    }
+
+    // market value
+    const folioMarketValue = folio.closingBalance * fundNav
+    const folioMarketValueDate = fundNavDate
+    marketValue += folioMarketValue
+
+    // cashflows
+    folio.transactions.forEach(txn => {
+      if (!txn.date || txn.amount === 0) return;
+      
+      let cashflowAmount = txn.amount;
+      
+      if (txn.type === 'PURCHASE' || txn.type === 'SIP') {
+        cashflowAmount = -Math.abs(cashflowAmount);
+      } else if (txn.type === 'REDEMPTION' || txn.type === 'DIVIDEND') {
+        cashflowAmount = Math.abs(cashflowAmount);
+      } else if (txn.type === 'REVERSAL') {
+        cashflowAmount = Math.abs(cashflowAmount);
+      } else {
+        // TODO: calculate cashflows
+        // cashflowAmount = txn.units > 0 ? -Math.abs(cashflowAmount) : Math.abs(cashflowAmount);
+        // cashflowAmount = 0
+        cashflowAmount = -cashflowAmount
+      }
+      
+      cashflows.push({ date: txn.date, amount: cashflowAmount });
+      
+      // // For current XIRR, only include if folio is currently held
+      // if (isCurrentlyHeld) {
+      //   folioCurrentCashflows.push({ date: txn.date, amount: cashflowAmount });
+      // }
+    });
+    // if (folioMarketValue > 0 && folio.casNavDate) {
+    //   cashflows.push({ date: folio.casNavDate, amount: folioMarketValue });
+    //   folioCurrentCashflows.push({ date: folio.casNavDate, amount: folioMarketValue });
+    // }
+    cashflows.push({ date: folioMarketValueDate, amount: folioMarketValue });
+    // folioCurrentCashflows.push({ date: folioMarketValueDate, amount: folioMarketValue });
+  })
+
+  const pnl = marketValue - costValue
+  const pnlPercentage = (pnl / costValue) * 100
+  const xirrValue = calculateXirr(cashflows)
+  const xirrPercentage = xirrValue !== null ? xirrValue * 100 : null;
+
+  // Group transactions by type for detail view
+  const transactions = folios.reduce((acc, item) => [...acc, ...item.transactions], [])
+  const transactionsByType = Object.entries(Object.groupBy(transactions, ({ type }) => type)).map(([type, txns]) => {
+    return {
+      type,
+      total: txns.reduce((acc, item) => acc += item.amount, 0),
+      transactions: txns,
+    }
+  })
+
+  const stats = {
+    units,
+    unitsCas,
+    marketValue,
+    marketValueCas,
+    invested,
+    costValue,
+    costValueCas,
+    pnl,
+    pnlPercentage,
+    xirr: xirrPercentage,
+    transactionsByType,
+  };
+  return stats;
+}
+function calculatePortfolioStats(casData, selectedPANs, fundsList) {
   const selectedFolios = casData.folios.filter(folio => selectedPANs.includes(folio.pan))
-  console.log('selectedFolios:', selectedFolios)
+  // console.log('selectedFolios:', selectedFolios)
 
   const overallStats = {
-    ...calculateStats(selectedFolios),
+    ...calculateStats(selectedFolios, fundsList),
   }
 
-  const fundStats = []
   // group folios by funds and pan
-  const byFund = Object.groupBy(selectedFolios, ({ isin, schemeName }) => isin+': '+schemeName)
-  console.log(byFund)
-  Object.entries(byFund).forEach(([fundId, fundFolios]) => {
-    console.log(fundId, fundFolios)
-    const fundIsin = fundFolios[0].isin
-
+  const fundStats = []
+  // const byFund = Object.groupBy(selectedFolios, ({ isin, schemeName }) => isin+': '+schemeName)
+  const byFund = Object.groupBy(selectedFolios, ({ isin }) => isin)
+  Object.entries(byFund).forEach(([fundIsin, fundFolios]) => {
+    // console.log(fundIsin, fundFolios)
+    const fundDetails = fundsList.find(f => f.isin === fundIsin)
     const fundItem = {
-      amc: fundFolios[0].amc,
-      fundName: fundFolios[0].schemeName,
-      isin: fundFolios[0].isin,
+      ...fundDetails,
       stats: {
-        nav: fundFolios[0].casNav,
-        navDate: fundFolios[0].casNavDate,
-        ...calculateStats(fundFolios),
+        ...calculateStats(fundFolios, fundsList),
       },
       pans: {},
     }
+    fundStats.push(fundItem)
+
     const byPan = Object.groupBy(fundFolios, ({ pan }) => pan)
     Object.entries(byPan).forEach(([panNumber, panFolios]) => {
-      console.log(' ', panNumber, panFolios)
+      // console.log(' ', panNumber, panFolios)
       const panItem = {
         panName: casData.pans[panNumber].name,
         panNumber,
         stats: {
-          ...calculateStats(panFolios),
-          transactions: [],
+          ...calculateStats(panFolios, fundsList),
         },
         folios: {},
       }
+      fundItem.pans[panNumber] = panItem
+
       panFolios.forEach(folio => {
-        console.log(' ', ' ', folio.folioNumber, folio)
+        // console.log(' ', ' ', folio.folioNumber, folio)
         const folioItem = {
           folioNumber: folio.folioNumber,
           stats: {
-            ...calculateStats([folio]),
+            ...calculateStats([folio], fundsList),
             openingBal: folio.openingBalance,
             nav: folio.casNav,
             navDate: folio.casNavDate,
@@ -1451,33 +1607,13 @@ function calculatePortfolioStats(casData, selectedPANs) {
           transactions: folio.transactions,
         }
         panItem.folios[folio.folioNumber] = folioItem
-
       })
-
-      // #region test totals
-      const panTxns = []
-      panFolios.forEach(fol => {
-        panTxns.push(...fol.transactions)
-      })
-      console.log(' ', ' ', ' ', panTxns.length, panTxns)
-      panItem.txns = panTxns
-      panItem.test = Object.fromEntries(Object.entries(Object.groupBy(panTxns, ({ type }) => type)).map(([type, txns]) => {
-        console.log(' ', ' ', ' ', type, )
-        // return { type, value: +formatNumber(txns.reduce((acc, item) => acc += item.amount, 0), 0)}
-        return [type, +formatNumber(txns.reduce((acc, item) => acc += item.amount, 0), 0)]
-      }))
-      // #endregion test totals
-
-
-      fundItem.pans[panNumber] = panItem
     })
-    fundStats.push(fundItem)
   })
-  console.log(fundStats)
 
   const stats = {
     funds: fundStats,
-    overallStats,
+    total: overallStats,
   }
   return stats
 }
@@ -1492,9 +1628,9 @@ function formatCurrency(value, dec = 0) {
   return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: dec });
 }
 
-function formatPercentage(value) {
+function formatPercentage(value, dec = 2) {
   if (value === undefined || value === null) return '-';
-  return value.toFixed(2) + '%';
+  return value.toFixed(dec) + '%';
 }
 
 function formatDate(dateStr) {
@@ -1503,22 +1639,106 @@ function formatDate(dateStr) {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function TotalScoreCard({ stats }) {
+  return (
+    <>
+      <div style={{ 
+        background: 'white', 
+        padding: '6px',
+        borderRadius: '12px', 
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        marginBottom: '10px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-around', gap: '0px', flexWrap: 'wrap', marginBottom: 6 }}>
+          <div style={{ fontSize: '24px', fontWeight: '700', textAlign: 'left', color: 'var(--gray-900)' }}>{formatCurrency(stats.marketValue)}</div>
+          <div style={{ fontSize: '24px', fontWeight: '600', color: stats.xirr > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(stats.xirr)}</div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-around', gap: 0, flexWrap: 'wrap' }}>
+          <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+            <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>INV</div>
+            <div style={{ fontSize: 14, fontWeight: '600', color: 'var(--gray-900)' }}>{formatCurrency(stats.invested)}</div>
+          </div>
+
+          <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+            <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>P&L</div>
+            <div style={{ fontSize: 14, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(stats.pnl)}</div>
+          </div>
+
+          <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+            <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>ABS</div>
+            <div style={{ fontSize: 14, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(stats.pnlPercentage)}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
 function StatsCard({ stats }) {
   return (
     <>
+      <div style={{ display: 'flex', justifyContent: 'space-around', gap: '0px', flexWrap: 'wrap', marginBottom: 0 }}>
+        <div style={{ fontSize: 18, fontWeight: '700', textAlign: 'left', color: 'var(--gray-900)' }}>
+          {formatCurrency(stats.marketValue)}
+        </div>
+        <div style={{ fontSize: 18, fontWeight: '600', color: stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+          {formatPercentage(stats.xirr)}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-around', gap: 0, flexWrap: 'wrap' }}>
+        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>Invested</div>
+          <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)' }}>{formatCurrency(stats.invested)}</div>
+        </div>
+
+        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>P&L</div>
+          <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(stats.pnl)}</div>
+        </div>
+
+        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>ABS</div>
+          <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(stats.pnlPercentage)}</div>
+        </div>
+      </div>
+
+      {stats.nav &&
+        <div className="stats-nav">
+          <span className="stats-label">NAV</span>
+          <span className="stats-value">{formatCurrency(stats.nav, 3)} on {formatDate(stats.navDate)}</span>
+          </div>
+      }
+
+      {stats.units &&
+        <div className="stats-units">
+          <span className="stats-label">Units</span>
+          <span className="stats-value">{formatNumber(stats.units, 3)}</span>
+        </div>
+      }
+
+      <br />
+      <br />
+      <br />
+      <br />
       <div className="">
         <span className="stats-value stats-market-value">{formatCurrency(stats.marketValue)}</span>
 
         <span className="stats-invested" style={{ marginLeft: 10 }}>
-          (<span className="stats-label">INV</span><span className="stats-value">{formatCurrency(stats.invested)}</span>)
+          <span className="stats-label">INV</span><span className="stats-value">{formatCurrency(stats.invested)}</span>
         </span>
       </div>
 
 
       <div>
-        <span className="stats-pnl">
+        <span className="stats-pnl" style={{ marginRight: 10 }}>
           <span className="stats-label">P&L</span>
-          <span className={`stats-value ${stats.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>{formatCurrency(stats.pnl)} ({formatPercentage(stats.pnlPercentage)})</span>
+          <span className={`stats-value ${stats.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>{formatCurrency(stats.pnl)}</span>
+        </span>
+
+        <span className="stats-pnl-perc" style={{ marginRight: 10 }}>
+          <span className="stats-label">ABS</span>
+          <span className={`stats-value ${stats.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>{formatPercentage(stats.pnlPercentage)}</span>
         </span>
 
         <span className="stats-xirr" style={{ marginLeft: 10 }}>
@@ -1540,42 +1760,104 @@ function StatsCard({ stats }) {
           <span className="stats-value">{formatNumber(stats.units, 3)}</span>
         </div>
       }
+
+      {/*}
+      <details>
+        <summary></summary>
+        <pre>{JSON.stringify(stats, null, 2)}</pre>
+      </details>
+      */}
     </>
   )
 }
 function FundCard({ fund }) {
   const [expanded, setExpanded] = useState(false);
-  const [showTransactions, setShowTransactions] = useState(true);
+  const styles = {
+    fundStatsLabel: {
+      fontSize: 12,
+      color: 'var(--gray-400)',
+    }
+  }
+  return (<>
+    <div className="fund-item" style={{ marginBottom: 10, padding: '10px', background: '#fff', borderBottom: '1px dotted #ddd' }}>
+      <div className="fund-summary" onClick={() => setExpanded(!expanded)} style={{ display: 'flex' }}>
+        <div className="fund-info" style={{ width: '80%', fontSize: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)', margin: 0 }}>{fund.schemeName.length < 50 ? fund.schemeName : fund.schemeName.slice(0, 50)+'...'}</div>
+          <div style={{}}>{fund.category}</div>
+        </div>
 
-  // TODO: show transaction history
 
+        <div className="fund-stats">
+          <div style={{ fontSize: 16, fontWeight: '700', textAlign: 'left', color: 'var(--gray-900)' }}>
+            {formatCurrency(fund.stats.marketValue)}
+          </div>
+          <div>
+            <span style={styles.fundStatsLabel}>XIRR: </span>
+            <span style={{ fontSize: 12, fontWeight: '600', color: fund.stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(fund.stats.xirr)}</span>
+          </div>
+          <div>
+            <span style={styles.fundStatsLabel}>P&L: </span>
+            <span style={{ fontSize: 12, fontWeight: '600', color: fund.stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(fund.stats.pnl)}</span>
+          </div>
+        </div>
+      </div>
+
+      {expanded && (<>
+        <div className="fund-details">
+          <div className="fund-meta" style={{ marginBottom: 0, fontSize: '11px', color: 'var(--gray-500)', opacity: 0.8 }}>
+            <span style={{ marginRight: '12px' }}>ISIN: {fund.isin}</span>
+            {fund.amfiCode && <span>Code: {fund.amfiCode}</span>}
+          </div>
+        </div>
+      </>)}
+    </div>
+  </>)
+}
+function FundCardV1({ fund }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <div className="fund-card">
       <div className="fund-header" onClick={() => setExpanded(!expanded)}>
-        <div className="fund-name">
-          <h3>{fund.fundName}</h3>
-          <span className="amc">{fund.amc}</span>
-          <span className={`expand-icon ${expanded ? 'expanded' : ''}`}>▼</span>
+        <div style={{ width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)', margin: 0 }}>
+              {fund.schemeName}
+            </div>
+            <span className={`expand-icon ${expanded ? 'expanded' : ''}`}>▼</span>
+          </div>
+          
+          {/* Fund Metadata - Less Prominent */}
+          <div className="fund-meta" style={{ marginBottom: 0, fontSize: '11px', color: 'var(--gray-500)', opacity: 0.8 }}>
+            <span style={{ marginRight: '12px' }}>{fund.category}</span>
+            {/* <span style={{ marginRight: '12px' }}>{fund.amc}</span> */}
+            <span style={{ marginRight: '12px' }}>ISIN: {fund.isin}</span>
+            {fund.amfiCode && <span>Code: {fund.amfiCode}</span>}
+          </div>
         </div>
-        <div className="fund-stats">
-          <StatsCard stats={{ ...fund.stats, units: null }} level="fund" />
-        </div>
+      </div>
+
+      <div className="fund-stats" style={{ marginTop: 0, padding: 8 }}>
+        <StatsCard stats={{ ...fund.stats }} level="fund" />
       </div>
 
       {expanded && (
         <div className="fund-details">
           {Object.values(fund.pans).map(pan => (
             <div key={pan.panNumber} className="pan-section">
-              <div className="pan-header">
+              <div className="pan-header" style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
                 {pan.panName} ({pan.panNumber})
               </div>
-              <div className="pan-stats">
-                <StatsCard stats={pan.stats} level="pan" />
-              </div>
+              <StatsCard stats={pan.stats} level="pan" />
 
               <details>
-                <summary>Test</summary>
-                <pre>{pan.test && JSON.stringify(pan.test, null, 2)}</pre>
+                <summary>Transactions</summary>
+                {pan.stats.transactionsByType && pan.stats.transactionsByType.map(({ type, total, transactions }) => {
+                  return (
+                    <div key={type}>
+                      <span>{type}:<span> </span>{formatCurrency(total)}</span>
+                    </div>
+                  )
+                })}
               </details>
 
               <details>
@@ -1591,7 +1873,7 @@ function FundCard({ fund }) {
                   </thead>
                   <tbody>
                     {Object.values(pan.folios).map((folio, i) => (
-                      <React.Fragment key={folio.folioNumber}>
+                      <React.Fragment key={i}>
                       <tr>
                         <td>{folio.folioNumber}</td>
                         <td className="number">{formatNumber(folio.stats.units, 3)}</td>
@@ -1601,12 +1883,12 @@ function FundCard({ fund }) {
                       <tr>
                         <td colSpan="4">
                           <div>
-                            {Object.entries(Object.groupBy(folio.transactions, ({ type }) => type)).map(([type, txns]) => {
+                            {folio.stats.transactionsByType && folio.stats.transactionsByType.map(({ type, total, transactions }) => {
                               return (
                                 <div key={type}>
                                   <details>
-                                    <summary>{type} {formatCurrency(txns.reduce((acc, item) => acc += item.amount, 0))}</summary>
-                                    {[...txns].reverse().map((txn, i) => {
+                                    <summary>{type} {formatCurrency(total)}</summary>
+                                    {[...transactions].reverse().map((txn, i) => {
                                       return (
                                         <div key={i} style={{fontSize: 10}}>
                                           <div>
@@ -1614,7 +1896,7 @@ function FundCard({ fund }) {
                                               <span style={{marginRight: 10}}>{formatDate(txn.date)}</span>
                                               <span style={{fontWeight: 'bold', marginRight: 10}}>{txn.type}</span>
                                               <span style={{marginRight: 10}}>{formatCurrency(txn.amount, 2)}</span>
-                                              <span style={{}}>{formatNumber(txn.units, 3)}</span> @ <span style={{}}>{formatCurrency(txn.nav)}</span>
+                                              <span style={{marginRight: 10}}>{formatNumber(txn.units, 3)}</span> @ <span style={{}}>{formatCurrency(txn.nav)}</span>
                                             </div>
                                             <div style={{borderBottom: '1px solid #ddd'}}>
                                             </div>
@@ -1648,22 +1930,105 @@ function Dashboard({ casData, onReset }) {
   const [stats, setStats] = useState(null);
   const [sortBy, setSortBy] = useState('marketValue');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [fundsList, setFundsList] = useState(casData.funds.map(f => {
+    const { amc, isin, schemeName, casNav: navCas, casNavDate: navDateCas } = f;
+    return { amc, isin, schemeName, navCas, navDateCas }
+  }));
+  const [refreshingNav, setRefreshingNav] = useState(false);
 
+  console.log('\nDashboard')
   console.log('casData:', casData)
-  useEffect(() => {
-    if (selectedPANs.length > 0) {
-      const calculatedStats = calculatePortfolioStats(casData, selectedPANs);
-      setStats(calculatedStats);
-    } else {
-      setStats(null);
+
+  const MF_API_URL = 'https://api.mfapi.in';
+
+  async function refreshNavs() {
+    setRefreshingNav(true);
+    try {
+      const updatedFundsList = await Promise.all(fundsList.map(async (fund) => {
+        let fundDetails = { ...fund }
+        if (!fund.amfiCode) return fundDetails
+
+        try {
+          const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}/latest`).then(r => r.json())
+          // console.log(' Latest NAV for '+fund.schemeName, navRes.data[0])
+          return {
+            ...fundDetails,
+            nav: parseFloat(navRes.data[0].nav),
+            navDate: navRes.data[0].date.split('-').reverse().join('-'),
+          }
+        } catch (err) {
+          console.error('Failed to fetch NAV for', fund.schemeName, err)
+          return fundDetails
+        }
+      }))
+      console.log('All NAVs refreshed:', updatedFundsList)
+      setFundsList(updatedFundsList);
+    } catch (err) {
+      console.error('Error refreshing NAVs:', err)
+    } finally {
+      setRefreshingNav(false);
     }
-  }, [casData, selectedPANs]);
+  }
+
+  useEffect(() => {
+    async function updateFundsList() {
+      console.log('Updating funds details from mfapi')
+      const mfApiRes = await fetch(`${MF_API_URL}/mf`).then(r => r.json())
+      const mfApiFundsList = mfApiRes.map(f => {
+        return {
+          schemeName: f.schemeName,
+          schemeCode: f.schemeCode,
+          isin: f.isinGrowth || f.isinDivReinvestment || null,
+        }
+      }).filter(f => f.isin)
+      console.log({mfApiFundsList})
+
+      const updatedFundsList = await Promise.all(fundsList.map(async (fund) => {
+        let fundDetails = { ...fund }
+
+        const mfApiFund = mfApiFundsList.find(f => f.isin === fund.isin)
+        if (!mfApiFund) return fundDetails
+
+        const amfiCode = mfApiFund.schemeCode
+        const mfApiSchemeName = mfApiFund.schemeName
+        const navRes = await fetch(`${MF_API_URL}/mf/${amfiCode}/latest`).then(r => r.json())
+        fundDetails = {
+          ...fundDetails,
+          mfApiSchemeName,
+          amfiCode,
+          category: navRes.meta.scheme_category.split(' - ')[1] ?? navRes.meta.scheme_category.split(' - ')[0],
+          nav: parseFloat(navRes.data[0].nav),
+          navDate: navRes.data[0].date.split('-').reverse().join('-'),
+        };
+        return fundDetails;
+      }))
+      // console.log('fundsList:', updatedFundsList)
+      setFundsList(updatedFundsList);
+    }
+    updateFundsList()
+  }, [casData]);
+
+  useEffect(() => {
+    async function updateStats() {
+      if (selectedPANs.length > 0) {
+        // const fundsMaster = await loadData('fundsMaster');
+        const calculatedStats = calculatePortfolioStats(casData, selectedPANs, fundsList);
+        // console.log('stats:', calculatedStats)
+        setStats(calculatedStats);
+      } else {
+        setStats(null);
+      }
+    }
+    updateStats()
+  }, [casData, selectedPANs, fundsList]);
 
   const toggleSortDirection = () => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
-  const sortedFunds = stats?.funds ? [...stats.funds].sort((a, b) => {
+  console.log('fundsList:', fundsList)
+  console.log('stats:', stats)
+  const sortedFundsStats = stats?.funds ? [...stats.funds].sort((a, b) => {
     let aVal, bVal;
     
     switch(sortBy) {
@@ -1700,71 +2065,65 @@ function Dashboard({ casData, onReset }) {
     
     return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
   }) : [];
-  console.log('sortedFunds:', sortedFunds)
+  console.log('sortedFundsStats:', sortedFundsStats)
 
   return (
     <>
-      <div className="header">
-        <h1>Mutual Fund Portfolio</h1>
-        <p style={{ color: 'var(--gray-600)' }}>Track your investments across funds and folios</p>
-        <div className="header-actions">
-          <button className="btn btn-danger" onClick={onReset}>
-            Clear Data & Upload New
-          </button>
-        </div>
+      <div className="controls" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', padding: 10 }}>
+        <button className="btn btn-primary" onClick={refreshNavs} disabled={refreshingNav || fundsList.length === 0}>
+          {refreshingNav ? 'Refreshing NAV...' : 'Refresh'}
+        </button>
+        <button className="btn btn-danger" onClick={onReset}>Clear Data</button>
       </div>
 
-      <details>
-        <summary>casData</summary>
-        <pre><code>{JSON.stringify(casData, null, 2)}</code></pre>
-      </details>
-      <details>
-        <summary>sortedFunds</summary>
-        <pre><code>{JSON.stringify(sortedFunds, null, 2)}</code></pre>
-      </details>
-      <details>
-        <summary>casData.folios</summary>
-        <div>
-          {casData?.folios && casData.folios.map(f => {
-            return (
-              <div key={f.isin+f.folioNumber}>
-                <div>{f.amc}</div>
-                <div>{f.folioNumber} {f.pan}</div>
-                <div>{f.schemeName}</div>
-                <div>Opening Balance: {f.openingBalance}</div>
-                <div>NAV on {f.casNavDate}: INR {f.casNav}</div>
-                <div>Closing Unit Balance: {f.closingBalance}</div>
-                <div>Total Cost Value: {f.costValue}</div>
-                <div>Market Value: {f.marketValue}</div>
-                <hr />
-              </div>
-            )
-          })}
-        </div>
-      </details>
+      <div className="pan-selector">
+        <PANSelector panAccounts={casData.pans} selectedPANs={selectedPANs} onSelectionChange={setSelectedPANs} />
+        {selectedPANs.length === 0 && (
+          <div className="upload-section">
+            <h2>No PANs Selected</h2>
+            <p>Please select at least one PAN account to view your portfolio</p>
+          </div>
+        )}
+      </div>
 
-      <PANSelector
-        panAccounts={casData.pans}
-        selectedPANs={selectedPANs}
-        onSelectionChange={setSelectedPANs}
-      />
-      {selectedPANs.length === 0 && (
-        <div className="upload-section">
-          <h2>No PANs Selected</h2>
-          <p>Please select at least one PAN account to view your portfolio</p>
-        </div>
-      )}
+      {/*
+      <details>
+        <summary></summary>
+        <details>
+          <summary>casData</summary>
+          <pre><code>{JSON.stringify(casData, null, 2)}</code></pre>
+        </details>
+        <details>
+          <summary>sortedFundsStats</summary>
+          <pre><code>{JSON.stringify(sortedFundsStats, null, 2)}</code></pre>
+        </details>
+        <details>
+          <summary>casData.folios</summary>
+          <pre><code>{JSON.stringify(casData?.folios, null, 2)}</code></pre>
+        </details>
+      </details>
+      */}
 
-      {stats && selectedPANs.length > 0 && (
-        <>
-          {/*<StatsOverview stats={stats.overall} />*/}
-          <StatsCard stats={{ ...stats.overallStats, units: null }} level="overall" />
+
+
+      {stats && (selectedPANs.length > 0) && (
+        <div className="dashboard">
+          {/* Portfolio Summary Card */}
+          <div className="portfolio-summary" style={{}}>
+            <TotalScoreCard stats={stats.total} />
+          </div>
+
+          {/*
+          <details>
+            <summary></summary>
+            <pre>{JSON.stringify(stats, null, 2)}</pre>
+          </details>
+          */}
 
           <div className="funds-section">
-            <div className="funds-header">
-              <h2>Funds ({stats.funds.length})</h2>
+            <div className="funds-header" style={{ display: 'flex', gap: 0 }}>
+              <div>Funds ({stats.funds.length})</div>
               <div className="sort-controls">
-                <span className="sort-label">Sort by:</span>
                 <select 
                   className="sort-select" 
                   value={sortBy} 
@@ -1787,11 +2146,14 @@ function Dashboard({ casData, onReset }) {
               </div>
             </div>
 
-            {sortedFunds.map(fund => (
-              <FundCard key={fund.isin} fund={fund} />
+            {sortedFundsStats.map((fund, i) => (
+              <div key={i}>
+                <FundCard key={i} fund={fund} />
+                {/*<FundCardV1 key={i} fund={fund} />*/}
+              </div>
             ))}
           </div>
-        </>
+        </div>
       )}
     </>
   )
@@ -1906,7 +2268,6 @@ function App() {
       const parsedData = await parseCAS(file, password || undefined);
       console.log('parsedData:', parsedData)
       await saveData('casData', parsedData);
-      // TODO: add AMFI code to funds
       // onUploadComplete(parsedData);
       setCasData(parsedData);
     } catch (err) {
@@ -1942,7 +2303,7 @@ function App() {
     <div className="app">
       {!casData
         ? (<UploadSection onUploadComplete={handleUploadComplete} />)
-        : ( <Dashboard casData={casData} onReset={handleReset} />)
+        : (<Dashboard casData={casData} onReset={handleReset} />)
       }
     </div>
   );
