@@ -353,13 +353,13 @@ body {
   transform: rotate(180deg);
 }
 
-.fund-details {
+/* .fund-details {
   padding: 10px;
-}
+} */
 
 .pan-section {
   margin-bottom: 20px;
-  padding: 16px;
+  /* padding: 16px; */
   background: var(--gray-50);
   border-radius: 8px;
 }
@@ -1474,15 +1474,18 @@ function calculateStats(folios, fundsList) {
   const marketValueCas = folios.reduce((acc, item) => acc += item.marketValue, 0)
 
   let marketValue = 0
+  let marketValuePrev = 0
   let cashflows = []
   folios.forEach(folio => {
     const fundDetails = fundsList.find(f => f.isin === folio.isin)
 
     let fundNav
     let fundNavDate
+    let fundNavPrev
     if (fundDetails?.nav) {
       fundNav = fundDetails.nav
       fundNavDate = fundDetails.navDate
+      if (fundDetails.prevNav) fundNavPrev = fundDetails.prevNav
     } else {
       fundNav = folio.casNav
       fundNavDate = folio.casNavDate
@@ -1492,6 +1495,11 @@ function calculateStats(folios, fundsList) {
     const folioMarketValue = folio.closingBalance * fundNav
     const folioMarketValueDate = fundNavDate
     marketValue += folioMarketValue
+
+    if (fundNavPrev) {
+      const folioMarketValuePrev = folio.closingBalance * fundNavPrev
+      marketValuePrev += folioMarketValuePrev
+    }
 
     // cashflows
     folio.transactions.forEach(txn => {
@@ -1532,6 +1540,10 @@ function calculateStats(folios, fundsList) {
   const xirrValue = calculateXirr(cashflows)
   const xirrPercentage = xirrValue !== null ? xirrValue * 100 : null;
 
+  // console.log(marketValue, marketValuePrev, dailyChange)
+  const dailyChange = marketValuePrev ? marketValue - marketValuePrev : 0
+  const dailyChangePercentage = marketValuePrev ? (dailyChange / marketValuePrev) * 100 : 0
+
   // Group transactions by type for detail view
   const transactions = folios.reduce((acc, item) => [...acc, ...item.transactions], [])
   const transactionsByType = Object.entries(Object.groupBy(transactions, ({ type }) => type)).map(([type, txns]) => {
@@ -1542,17 +1554,21 @@ function calculateStats(folios, fundsList) {
     }
   })
 
+
   const stats = {
     units,
     unitsCas,
     marketValue,
     marketValueCas,
+    marketValuePrev,
     invested,
     costValue,
     costValueCas,
     pnl,
     pnlPercentage,
     xirr: xirrPercentage,
+    dailyChange,
+    dailyChangePercentage,
     transactionsByType,
   };
   return stats;
@@ -1669,261 +1685,247 @@ function TotalScoreCard({ stats }) {
             <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>ABS</div>
             <div style={{ fontSize: 14, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(stats.pnlPercentage)}</div>
           </div>
+
+          <span style={{ fontSize: 14, fontWeight: '600', color: stats.dailyChange > 0 ? 'var(--success)' : 'var(--danger)' }}>
+            {formatCurrency(stats.dailyChange)} ({formatPercentage(stats.dailyChangePercentage)})
+          </span>
         </div>
+
       </div>
     </>
   )
 }
-function StatsCard({ stats }) {
-  return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-around', gap: '0px', flexWrap: 'wrap', marginBottom: 0 }}>
-        <div style={{ fontSize: 18, fontWeight: '700', textAlign: 'left', color: 'var(--gray-900)' }}>
-          {formatCurrency(stats.marketValue)}
-        </div>
-        <div style={{ fontSize: 18, fontWeight: '600', color: stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-          {formatPercentage(stats.xirr)}
-        </div>
-      </div>
+// function StatsCard({ stats }) {
+//   return (
+//     <>
+//       <div style={{ display: 'flex', justifyContent: 'space-around', gap: '0px', flexWrap: 'wrap', marginBottom: 0 }}>
+//         <div style={{ fontSize: 18, fontWeight: '700', textAlign: 'left', color: 'var(--gray-900)' }}>
+//           {formatCurrency(stats.marketValue)}
+//         </div>
+//         <div style={{ fontSize: 18, fontWeight: '600', color: stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+//           {formatPercentage(stats.xirr)}
+//         </div>
+//       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-around', gap: 0, flexWrap: 'wrap' }}>
-        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
-          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>Invested</div>
-          <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)' }}>{formatCurrency(stats.invested)}</div>
-        </div>
+//       <div style={{ display: 'flex', justifyContent: 'space-around', gap: 0, flexWrap: 'wrap' }}>
+//         <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+//           <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>Invested</div>
+//           <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)' }}>{formatCurrency(stats.invested)}</div>
+//         </div>
 
-        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
-          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>P&L</div>
-          <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(stats.pnl)}</div>
-        </div>
+//         <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+//           <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>P&L</div>
+//           <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(stats.pnl)}</div>
+//         </div>
 
-        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
-          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>ABS</div>
-          <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(stats.pnlPercentage)}</div>
-        </div>
-      </div>
+//         <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+//           <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>ABS</div>
+//           <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(stats.pnlPercentage)}</div>
+//         </div>
+//       </div>
 
-      {stats.nav &&
-        <div className="stats-nav">
-          <span className="stats-label">NAV</span>
-          <span className="stats-value">{formatCurrency(stats.nav, 3)} on {formatDate(stats.navDate)}</span>
-          </div>
-      }
+//       {stats.nav &&
+//         <div className="stats-nav">
+//           <span className="stats-label">NAV</span>
+//           <span className="stats-value">{formatCurrency(stats.nav, 3)} on {formatDate(stats.navDate)}</span>
+//           </div>
+//       }
 
-      {stats.units &&
-        <div className="stats-units">
-          <span className="stats-label">Units</span>
-          <span className="stats-value">{formatNumber(stats.units, 3)}</span>
-        </div>
-      }
-
-      <br />
-      <br />
-      <br />
-      <br />
-      <div className="">
-        <span className="stats-value stats-market-value">{formatCurrency(stats.marketValue)}</span>
-
-        <span className="stats-invested" style={{ marginLeft: 10 }}>
-          <span className="stats-label">INV</span><span className="stats-value">{formatCurrency(stats.invested)}</span>
-        </span>
-      </div>
-
-
-      <div>
-        <span className="stats-pnl" style={{ marginRight: 10 }}>
-          <span className="stats-label">P&L</span>
-          <span className={`stats-value ${stats.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>{formatCurrency(stats.pnl)}</span>
-        </span>
-
-        <span className="stats-pnl-perc" style={{ marginRight: 10 }}>
-          <span className="stats-label">ABS</span>
-          <span className={`stats-value ${stats.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>{formatPercentage(stats.pnlPercentage)}</span>
-        </span>
-
-        <span className="stats-xirr" style={{ marginLeft: 10 }}>
-          <span className="stats-label">XIRR</span>
-          <span className={`stats-value ${stats.pnl >= 0 ? 'positive-value' : 'negative-value'}`}>{formatPercentage(stats.xirr)}</span>
-        </span>
-      </div>
-
-      {stats.nav &&
-        <div className="stats-nav">
-          <span className="stats-label">NAV</span>
-          <span className="stats-value">{formatCurrency(stats.nav, 3)} on {formatDate(stats.navDate)}</span>
-          </div>
-      }
-
-      {stats.units &&
-        <div className="stats-units">
-          <span className="stats-label">Units</span>
-          <span className="stats-value">{formatNumber(stats.units, 3)}</span>
-        </div>
-      }
-
-      {/*}
-      <details>
-        <summary></summary>
-        <pre>{JSON.stringify(stats, null, 2)}</pre>
-      </details>
-      */}
-    </>
-  )
-}
+//       {stats.units &&
+//         <div className="stats-units">
+//           <span className="stats-label">Units</span>
+//           <span className="stats-value">{formatNumber(stats.units, 3)}</span>
+//         </div>
+//       }
+//       {/*}
+//       <details>
+//         <summary></summary>
+//         <pre>{JSON.stringify(stats, null, 2)}</pre>
+//       </details>
+//       */}
+//     </>
+//   )
+// }
 function FundCard({ fund }) {
   const [expanded, setExpanded] = useState(false);
   const styles = {
     fundStatsLabel: {
-      fontSize: 12,
+      fontSize: 11,
       color: 'var(--gray-400)',
     }
   }
+  // console.log(fund)
   return (<>
     <div className="fund-item" style={{ marginBottom: 10, padding: '10px', background: '#fff', borderBottom: '1px dotted #ddd' }}>
       <div className="fund-summary" onClick={() => setExpanded(!expanded)} style={{ display: 'flex' }}>
-        <div className="fund-info" style={{ width: '80%', fontSize: 12 }}>
+        <div className="fund-info" style={{ width: '70%', fontSize: 12 }}>
           <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)', margin: 0 }}>{fund.schemeName.length < 50 ? fund.schemeName : fund.schemeName.slice(0, 50)+'...'}</div>
           <div style={{}}>{fund.category}</div>
+          <div>
+            <span style={styles.fundStatsLabel}>ISIN </span>
+            <span style={{ fontSize: 12 }}>{fund.isin}</span>
+          </div>
+          {fund.amfiCode &&
+            <div>
+              <span style={styles.fundStatsLabel}>Code </span>
+              <span style={{ fontSize: 12 }}>{fund.amfiCode}</span>
+            </div>
+          }
+          <div>
+            <span style={styles.fundStatsLabel}>UNITS </span>
+            <span style={{ fontSize: 12 }}>
+              {formatCurrency(fund.stats.units)}
+            </span>
+          </div>
+          <div>
+            <span style={styles.fundStatsLabel}>NAV </span>
+            <span style={{ fontSize: 12 }}>
+              {formatCurrency(fund.nav)} on {formatDate(fund.navDate)}
+            </span>
+          </div>
         </div>
 
 
         <div className="fund-stats">
-          <div style={{ fontSize: 16, fontWeight: '700', textAlign: 'left', color: 'var(--gray-900)' }}>
-            {formatCurrency(fund.stats.marketValue)}
+          <div>
+            <span style={{ fontSize: 16, fontWeight: '700' }}>
+              {formatCurrency(fund.stats.marketValue)}
+            </span>
           </div>
           <div>
-            <span style={styles.fundStatsLabel}>XIRR: </span>
-            <span style={{ fontSize: 12, fontWeight: '600', color: fund.stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(fund.stats.xirr)}</span>
+            <span style={styles.fundStatsLabel}>XIRR </span>
+            <span style={{ fontSize: 16, fontWeight: 'bold', color: fund.stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+              {formatPercentage(fund.stats.xirr)}
+            </span>
           </div>
           <div>
-            <span style={styles.fundStatsLabel}>P&L: </span>
-            <span style={{ fontSize: 12, fontWeight: '600', color: fund.stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(fund.stats.pnl)}</span>
+            <span style={styles.fundStatsLabel}>P&L </span>
+            <span style={{ fontSize: 12, fontWeight: 'bold', color: fund.stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+              {formatCurrency(fund.stats.pnl)}
+            </span>
+          </div>
+          <div>
+            <span style={styles.fundStatsLabel}>INV </span>
+            <span style={{ fontSize: 12 }}>
+              {formatCurrency(fund.stats.invested)}
+            </span>
+          </div>
+          <div>
+            <span style={styles.fundStatsLabel}>ABS </span>
+            <span style={{ fontSize: 12 }}>
+              {formatPercentage(fund.stats.pnlPercentage)}
+            </span>
           </div>
         </div>
       </div>
 
       {expanded && (<>
         <div className="fund-details">
-          <div className="fund-meta" style={{ marginBottom: 0, fontSize: '11px', color: 'var(--gray-500)', opacity: 0.8 }}>
-            <span style={{ marginRight: '12px' }}>ISIN: {fund.isin}</span>
-            {fund.amfiCode && <span>Code: {fund.amfiCode}</span>}
-          </div>
+          {/* PAN SECTION */}
+          {Object.values(fund.pans).map(pan => (
+            <div key={pan.panNumber} className="pan-section" style={{ borderBottom: '1px solid #ddd' }}>
+              <div style={{ display: 'flex', marginBottom: '0' }}>
+                <div className="pan-name" style={{ fontSize: '12px', width: '70%' }}>
+                  <div style={{ fontWeight: 'bold' }}>{pan.panName.split(' ')[0]}</div>
+                  <div>{pan.panNumber.slice(0, 3)}***</div>
+                </div>
+                <div className="pan-stats">
+                  <div>
+                    <span style={{ fontSize: 16, fontWeight: '700' }}>
+                      {formatCurrency(pan.stats.marketValue)}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={styles.fundStatsLabel}>XIRR </span>
+                    <span style={{ fontSize: 16, fontWeight: 'bold', color: pan.stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                      {formatPercentage(pan.stats.xirr)}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={styles.fundStatsLabel}>P&L </span>
+                    <span style={{ fontSize: 12, fontWeight: 'bold', color: pan.stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                      {formatCurrency(pan.stats.pnl)}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={styles.fundStatsLabel}>INV </span>
+                    <span style={{ fontSize: 12 }}>
+                      {formatCurrency(pan.stats.invested)}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={styles.fundStatsLabel}>ABS </span>
+                    <span style={{ fontSize: 12 }}>
+                      {formatPercentage(pan.stats.pnlPercentage)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <details>
+                  <summary>Folios ({Object.keys(pan.folios).length})</summary>
+                  <table className="folios-table">
+                    <thead>
+                      <tr>
+                        <th>Folio</th>
+                        <th className="number">Units</th>
+                        <th className="number">Invested</th>
+                        <th className="number">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.values(pan.folios).map((folio, i) => (
+                        <React.Fragment key={i}>
+                        <tr>
+                          <td>{folio.folioNumber}</td>
+                          <td className="number">{formatNumber(folio.stats.units, 3)}</td>
+                          <td className="number">{formatCurrency(folio.stats.invested)}</td>
+                          <td className="number">{formatCurrency(folio.stats.marketValue)}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan="4">
+                            <div>
+                              {folio.stats.transactionsByType && folio.stats.transactionsByType.map(({ type, total, transactions }) => {
+                                return (
+                                  <div key={type}>
+                                    <details>
+                                      <summary>{type} {formatCurrency(total)}</summary>
+                                      {[...transactions].reverse().map((txn, i) => {
+                                        return (
+                                          <div key={i} style={{fontSize: 10}}>
+                                            <div>
+                                              <div>
+                                                <span style={{marginRight: 10}}>{formatDate(txn.date)}</span>
+                                                <span style={{fontWeight: 'bold', marginRight: 10}}>{txn.type}</span>
+                                                <span style={{marginRight: 10}}>{formatCurrency(txn.amount, 2)}</span>
+                                                <span style={{marginRight: 10}}>{formatNumber(txn.units, 3)}</span> @ <span style={{}}>{formatCurrency(txn.nav)}</span>
+                                              </div>
+                                              <div style={{borderBottom: '1px solid #ddd'}}>
+                                              </div>
+                                            </div>
+                                            {/*<pre>{JSON.stringify(txn, null, 2)}</pre>*/}
+                                          </div>
+                                        )
+                                      })}
+                                    </details>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </details>
+              </div>
+            </div>
+          ))}
         </div>
       </>)}
     </div>
   </>)
-}
-function FundCardV1({ fund }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div className="fund-card">
-      <div className="fund-header" onClick={() => setExpanded(!expanded)}>
-        <div style={{ width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)', margin: 0 }}>
-              {fund.schemeName}
-            </div>
-            <span className={`expand-icon ${expanded ? 'expanded' : ''}`}>▼</span>
-          </div>
-          
-          {/* Fund Metadata - Less Prominent */}
-          <div className="fund-meta" style={{ marginBottom: 0, fontSize: '11px', color: 'var(--gray-500)', opacity: 0.8 }}>
-            <span style={{ marginRight: '12px' }}>{fund.category}</span>
-            {/* <span style={{ marginRight: '12px' }}>{fund.amc}</span> */}
-            <span style={{ marginRight: '12px' }}>ISIN: {fund.isin}</span>
-            {fund.amfiCode && <span>Code: {fund.amfiCode}</span>}
-          </div>
-        </div>
-      </div>
-
-      <div className="fund-stats" style={{ marginTop: 0, padding: 8 }}>
-        <StatsCard stats={{ ...fund.stats }} level="fund" />
-      </div>
-
-      {expanded && (
-        <div className="fund-details">
-          {Object.values(fund.pans).map(pan => (
-            <div key={pan.panNumber} className="pan-section">
-              <div className="pan-header" style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
-                {pan.panName} ({pan.panNumber})
-              </div>
-              <StatsCard stats={pan.stats} level="pan" />
-
-              <details>
-                <summary>Transactions</summary>
-                {pan.stats.transactionsByType && pan.stats.transactionsByType.map(({ type, total, transactions }) => {
-                  return (
-                    <div key={type}>
-                      <span>{type}:<span> </span>{formatCurrency(total)}</span>
-                    </div>
-                  )
-                })}
-              </details>
-
-              <details>
-                <summary>Folios</summary>
-                <table className="folios-table">
-                  <thead>
-                    <tr>
-                      <th>Folio</th>
-                      <th className="number">Units</th>
-                      <th className="number">Invested</th>
-                      <th className="number">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.values(pan.folios).map((folio, i) => (
-                      <React.Fragment key={i}>
-                      <tr>
-                        <td>{folio.folioNumber}</td>
-                        <td className="number">{formatNumber(folio.stats.units, 3)}</td>
-                        <td className="number">{formatCurrency(folio.stats.invested)}</td>
-                        <td className="number">{formatCurrency(folio.stats.marketValue)}</td>
-                      </tr>
-                      <tr>
-                        <td colSpan="4">
-                          <div>
-                            {folio.stats.transactionsByType && folio.stats.transactionsByType.map(({ type, total, transactions }) => {
-                              return (
-                                <div key={type}>
-                                  <details>
-                                    <summary>{type} {formatCurrency(total)}</summary>
-                                    {[...transactions].reverse().map((txn, i) => {
-                                      return (
-                                        <div key={i} style={{fontSize: 10}}>
-                                          <div>
-                                            <div>
-                                              <span style={{marginRight: 10}}>{formatDate(txn.date)}</span>
-                                              <span style={{fontWeight: 'bold', marginRight: 10}}>{txn.type}</span>
-                                              <span style={{marginRight: 10}}>{formatCurrency(txn.amount, 2)}</span>
-                                              <span style={{marginRight: 10}}>{formatNumber(txn.units, 3)}</span> @ <span style={{}}>{formatCurrency(txn.nav)}</span>
-                                            </div>
-                                            <div style={{borderBottom: '1px solid #ddd'}}>
-                                            </div>
-                                          </div>
-                                          {/*<pre>{JSON.stringify(txn, null, 2)}</pre>*/}
-                                        </div>
-                                      )
-                                    })}
-                                  </details>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </td>
-                      </tr>
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </details>
-
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 function Dashboard({ casData, onReset }) {
   const [selectedPANs, setSelectedPANs] = useState(Object.keys(casData.pans));
@@ -1949,12 +1951,15 @@ function Dashboard({ casData, onReset }) {
         if (!fund.amfiCode) return fundDetails
 
         try {
-          const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}/latest`).then(r => r.json())
+          // const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}/latest`).then(r => r.json())
+          const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}`).then(r => r.json())
           // console.log(' Latest NAV for '+fund.schemeName, navRes.data[0])
           return {
             ...fundDetails,
             nav: parseFloat(navRes.data[0].nav),
             navDate: navRes.data[0].date.split('-').reverse().join('-'),
+            prevNav: parseFloat(navRes.data[1].nav),
+            prevNavDate: navRes.data[1].date.split('-').reverse().join('-'),
           }
         } catch (err) {
           console.error('Failed to fetch NAV for', fund.schemeName, err)
@@ -1991,7 +1996,8 @@ function Dashboard({ casData, onReset }) {
 
         const amfiCode = mfApiFund.schemeCode
         const mfApiSchemeName = mfApiFund.schemeName
-        const navRes = await fetch(`${MF_API_URL}/mf/${amfiCode}/latest`).then(r => r.json())
+        // const navRes = await fetch(`${MF_API_URL}/mf/${amfiCode}/latest`).then(r => r.json())
+        const navRes = await fetch(`${MF_API_URL}/mf/${amfiCode}`).then(r => r.json())
         fundDetails = {
           ...fundDetails,
           mfApiSchemeName,
@@ -1999,6 +2005,8 @@ function Dashboard({ casData, onReset }) {
           category: navRes.meta.scheme_category.split(' - ')[1] ?? navRes.meta.scheme_category.split(' - ')[0],
           nav: parseFloat(navRes.data[0].nav),
           navDate: navRes.data[0].date.split('-').reverse().join('-'),
+          prevNav: parseFloat(navRes.data[1].nav),
+          prevNavDate: navRes.data[1].date.split('-').reverse().join('-'),
         };
         return fundDetails;
       }))
@@ -2033,8 +2041,8 @@ function Dashboard({ casData, onReset }) {
     
     switch(sortBy) {
       case 'name':
-        aVal = a.fundName.toLowerCase();
-        bVal = b.fundName.toLowerCase();
+        aVal = a.schemeName.toLowerCase();
+        bVal = b.schemeName.toLowerCase();
         return sortDirection === 'asc' 
           ? aVal.localeCompare(bVal)
           : bVal.localeCompare(aVal);
@@ -2149,9 +2157,9 @@ function Dashboard({ casData, onReset }) {
             {sortedFundsStats.map((fund, i) => (
               <div key={i}>
                 <FundCard key={i} fund={fund} />
-                {/*<FundCardV1 key={i} fund={fund} />*/}
               </div>
             ))}
+
           </div>
         </div>
       )}
