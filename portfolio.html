@@ -1666,8 +1666,8 @@ function calculatePerfGraph(folios, fundsList) {
 
   const startDate = allTransactions[0].date
   // const startDate = '2026-05-01'
-  const endDate = allTransactions[allTransactions.length - 1].date
-  // const endDate = new Date().toISOString().slice(0, 10)
+  // const endDate = allTransactions[allTransactions.length - 1].date
+  const endDate = dateISO(new Date()).slice(0, 10)
   // let endDate = new Date()
   // endDate = new Date(endDate.getTime() - (endDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 10)
 
@@ -2547,6 +2547,7 @@ function Dashboard({ casData, onReset }) {
 
 
   if (stats) {
+    // TODO
     const chartLabels = stats.perfChartOpts.map(d => d.date)
     const chartDatasets = [
       {
