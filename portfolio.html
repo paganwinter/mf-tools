@@ -11,6 +11,7 @@
 <script crossorigin src="js/react-dom.development-18.3.1.js"></script>
 <script src="js/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 * {
   margin: 0;
@@ -474,6 +475,7 @@ body {
 </style>
 </head>
 <body>
+<canvas id="myChart"></canvas>
 <div id="root"></div>
 
 <!--
@@ -494,13 +496,10 @@ body {
 </script>
 -->
 <script type="text/babel">
-const { useState, useEffect, useCallback } = React;
-
-// Initialize PDF.js worker
+const MFAPI = 'https://api.mfapi.in';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-const MFAPI = 'https://api.mfapi.in';
-
+const { useState, useEffect, useCallback } = React;
 
 // #region DATABASE
 const DB_NAME = 'MutualFundPortfolioDB';
@@ -1265,100 +1264,31 @@ async function parseCAS(file, password) {
 
 
 
-// #region COMPONENTS
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
-  }
-  componentDidCatch(error, info) {
-    this.setState({ hasError: true, error, errorInfo: info });
-    console.group('❌ Error Caught by ErrorBoundary');
-    console.error('Error:', error);
-    console.error('Component Stack:', info.componentStack);
-    console.error('Full Stack:', error.stack);
-    console.groupEnd();
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: '20px', background: '#fee', border: '2px solid #f00', margin: '20px' }}>
-          <h2>❌ Error Occurred</h2>
-          <details open style={{ marginTop: '12px' }}>
-            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Error Message</summary>
-            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto' }}>
-              {this.state.error.message}
-            </pre>
-          </details>
-          <details style={{ marginTop: '12px' }}>
-            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Stack Trace</summary>
-            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto', fontSize: '11px' }}>
-              {this.state.error.stack}
-            </pre>
-          </details>
-          <details style={{ marginTop: '12px' }}>
-            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Component Stack</summary>
-            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto', fontSize: '11px' }}>
-              {this.state.errorInfo?.componentStack}
-            </pre>
-          </details>
-          <button 
-            onClick={() => window.location.reload()} 
-            style={{ marginTop: '12px', padding: '8px 16px', cursor: 'pointer' }}
-          >
-            Reload Page
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
+// #region functions
+function roundNum(num, decimals = 2) {
+  const pow = Math.pow(10, decimals);
+  return Math.round((num + Number.EPSILON) * pow) / pow;
 }
 
-function PANSelector({ panAccounts, selectedPANs, onSelectionChange }) {
-  const handleToggle = (pan) => {
-    if (selectedPANs.includes(pan)) {
-      onSelectionChange(selectedPANs.filter(p => p !== pan));
-    } else {
-      onSelectionChange([...selectedPANs, pan]);
-    }
-  };
+function formatNumber(value, dec = 2) {
+  if (value === undefined || value === null) return '-';
+  return value.toFixed(dec);
+}
 
-  const handleSelectAll = () => {
-    onSelectionChange(Object.keys(panAccounts));
-  };
+function formatCurrency(value, dec = 0) {
+  if (value === undefined || value === null) return '₹0';
+  return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: dec });
+}
 
-  const handleClearAll = () => {
-    onSelectionChange([]);
-  };
+function formatPercentage(value, dec = 2) {
+  if (value === undefined || value === null) return '-';
+  return value.toFixed(dec) + '%';
+}
 
-  return (
-    <>
-      <div className="pan-options">
-        {Object.entries(panAccounts).map(([pan, account]) => (
-          <label
-            key={pan}
-            className={`pan-option ${selectedPANs.includes(pan) ? 'selected' : ''}`}
-          >
-            <input
-              type="checkbox"
-              checked={selectedPANs.includes(pan)}
-              onChange={() => handleToggle(pan)}
-            />
-            <div>
-              <span style={{ fontWeight: 600 }}>{account.name.split(' ')[0].slice(0, 3)}</span> <span style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{pan.slice(0, 3)}***</span>
-            </div>
-          </label>
-        ))}
-      </div>
-      {/*
-      <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-        <button className="btn btn-secondary" onClick={handleSelectAll}>Select All</button>
-        <button className="btn btn-secondary" onClick={handleClearAll}>Clear All</button>
-      </div>
-      */}
-    </>
-  );
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function calculateXirr(cashflows) {
@@ -1489,117 +1419,114 @@ function calculateStats(folios, fundsList) {
   return stats;
 }
 
-function calculateCG(transactions, currentNav) {
-  // for tax
-  const EQUITY_LTCG_THRESHOLD = 125000;
-  const LTCG_TAX_RATE = 12.5/100; // 10%
-  const STCG_TAX_RATE = 20/100; // 15%
-  const inventory = []
-  const totalLTCG = 0
-  const totalSTCG = 0
+// function _calculateCG(transactions, currentNav) {
+//   // for tax
+//   const EQUITY_LTCG_THRESHOLD = 125000;
+//   const LTCG_TAX_RATE = 12.5/100; // 10%
+//   const STCG_TAX_RATE = 20/100; // 15%
+//   const inventory = []
+//   const totalLTCG = 0
+//   const totalSTCG = 0
 
-  // for gains
-  let unitsHeld = 0
-  let totalCostBasis = 0;
-  let realizedGain = 0;
-  const transactionsSorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-  transactionsSorted.forEach(txn => {
-    if (txn.type === 'SIP' || txn.type === 'PURCHASE') {
-      // for tax
-      inventory.push(txn);
+//   // for gains
+//   let unitsHeld = 0
+//   let totalCostBasis = 0;
+//   let realizedGain = 0;
+//   const transactionsSorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+//   transactionsSorted.forEach(txn => {
+//     if (txn.type === 'SIP' || txn.type === 'PURCHASE') {
+//       // for tax
+//       inventory.push(txn);
 
-      // for gains
-      unitsHeld += txn.units;
-      totalCostBasis += (txn.units * txn.nav);
-    // } else if (txn.type === 'REDEMPTION' || txn.type === 'REVERSAL') {
-    } else if (txn.type === 'REDEMPTION') {
-      console.log('Selling '+txn.units+' at '+txn.nav+' on '+txn.date)
+//       // for gains
+//       unitsHeld += txn.units;
+//       totalCostBasis += (txn.units * txn.nav);
+//     // } else if (txn.type === 'REDEMPTION' || txn.type === 'REVERSAL') {
+//     } else if (txn.type === 'REDEMPTION') {
+//       console.log('Selling '+txn.units+' at '+txn.nav+' on '+txn.date)
 
-      // for gains
-      if (unitsHeld !== 0) {
-        // Average cost per unit before sale
-        let avgCostPerUnit = totalCostBasis / unitsHeld;
+//       // for gains
+//       if (unitsHeld !== 0) {
+//         // Average cost per unit before sale
+//         let avgCostPerUnit = totalCostBasis / unitsHeld;
         
-        // Calculate realized gain for this sale
-        let costOfSoldUnits = -txn.units * avgCostPerUnit;
-        let saleValue = -txn.units * txn.nav;
-        realizedGain += (saleValue - costOfSoldUnits);
+//         // Calculate realized gain for this sale
+//         let costOfSoldUnits = -txn.units * avgCostPerUnit;
+//         let saleValue = -txn.units * txn.nav;
+//         realizedGain += (saleValue - costOfSoldUnits);
         
-        // Update holdings
-        unitsHeld -= -txn.units;
-        totalCostBasis -= costOfSoldUnits;
-      }
+//         // Update holdings
+//         unitsHeld -= -txn.units;
+//         totalCostBasis -= costOfSoldUnits;
+//       }
 
-      // for tax
-      let unitsToSell = txn.units;
-      let saleDate = new Date(txn.date);
-      while (unitsToSell > 0 && inventory.length > 0) {
-        let purchase = inventory[0];
-        if (purchase.units <= unitsToSell) {
-          // Sell full lot
-          unitsToSell -= purchase.units;
-          calculateGain(purchase, purchase.units, txn.nav, saleDate);
-          inventory.shift();
-        } else {
-          // Sell partial lot
-          calculateGain(purchase, unitsToSell, txn.nav, saleDate);
-          purchase.units -= unitsToSell;
-          unitsToSell = 0;
-        }
-      }
-    }
-  })
-  function calculateGain(purchase, units, sellPrice, sellDate) {
-    let buyDate = new Date(purchase.date);
-    let holdingPeriodMonths = (sellDate - buyDate) / (1000 * 60 * 60 * 24 * 30.44);
-    let gain = (sellPrice - purchase.price) * units;
+//       // for tax
+//       let unitsToSell = txn.units;
+//       let saleDate = new Date(txn.date);
+//       while (unitsToSell > 0 && inventory.length > 0) {
+//         let purchase = inventory[0];
+//         if (purchase.units <= unitsToSell) {
+//           // Sell full lot
+//           unitsToSell -= purchase.units;
+//           calculateGain(purchase, purchase.units, txn.nav, saleDate);
+//           inventory.shift();
+//         } else {
+//           // Sell partial lot
+//           calculateGain(purchase, unitsToSell, txn.nav, saleDate);
+//           purchase.units -= unitsToSell;
+//           unitsToSell = 0;
+//         }
+//       }
+//     }
+//   })
+//   function calculateGain(purchase, units, sellPrice, sellDate) {
+//     let buyDate = new Date(purchase.date);
+//     let holdingPeriodMonths = (sellDate - buyDate) / (1000 * 60 * 60 * 24 * 30.44);
+//     let gain = (sellPrice - purchase.price) * units;
 
-    if (holdingPeriodMonths > 12) {
-      totalLTCG += gain; // Equity LTCG
-    } else {
-      totalSTCG += gain; // STCG
-    }
-  }
+//     if (holdingPeriodMonths > 12) {
+//       totalLTCG += gain; // Equity LTCG
+//     } else {
+//       totalSTCG += gain; // STCG
+//     }
+//   }
 
-  // for tax
-  // Apply Exemptions (e.g., India: 1 Lakh exemption on equity LTCG)
-  let taxableLTCG = Math.max(0, totalLTCG - EQUITY_LTCG_THRESHOLD);
-  let ltcgTax = taxableLTCG * LTCG_TAX_RATE;
-  let stcgTax = totalSTCG * STCG_TAX_RATE;
+//   // for tax
+//   // Apply Exemptions (e.g., India: 1 Lakh exemption on equity LTCG)
+//   let taxableLTCG = Math.max(0, totalLTCG - EQUITY_LTCG_THRESHOLD);
+//   let ltcgTax = taxableLTCG * LTCG_TAX_RATE;
+//   let stcgTax = totalSTCG * STCG_TAX_RATE;
 
-  // for gains
-  // Unrealized Gain: (Current Value - Cost Basis of Remaining Units)
-  let currentMarketValue = unitsHeld * currentNav;
-  let unrealizedGain = currentMarketValue - totalCostBasis;
+//   // for gains
+//   // Unrealized Gain: (Current Value - Cost Basis of Remaining Units)
+//   let currentMarketValue = unitsHeld * currentNav;
+//   let unrealizedGain = currentMarketValue - totalCostBasis;
 
-  return {
-    // gains
-    unitsHeld,
-    realizedGain,
-    unrealizedGain,
-    currentValue: currentMarketValue,
+//   return {
+//     // gains
+//     unitsHeld,
+//     realizedGain,
+//     unrealizedGain,
+//     currentValue: currentMarketValue,
 
-    // // tax
-    // totalSTCG,
-    // totalLTCG,
-    // taxableLTCG,
-    // ltcgTax,
-    // stcgTax,
-    // totalTax: ltcgTax + stcgTax,
-  };
-}
+//     // // tax
+//     // totalSTCG,
+//     // totalLTCG,
+//     // taxableLTCG,
+//     // ltcgTax,
+//     // stcgTax,
+//     // totalTax: ltcgTax + stcgTax,
+//   };
+// }
 
 function calculateExp(folios, fundsList) {
   folios.forEach(fol => {
-    // console.log(fol)
     const fund = fundsList.find(f => f.isin === fol.isin)
-    // console.log(fund)
-    // console.log(fol.schemeName, Object.groupBy(fol.transactions, ({ type }) => type))
 
-    const units = +fol.transactions.reduce((total, item) => total += item.units, 0).toFixed(3)
-    if (fol.closingBalance !== units) console.log('closingBalance !== units', fol, fol.closingBalance, units)
+    // const totalUnitsHeld = +fol.transactions.reduce((total, item) => total += item.units, 0).toFixed(3)
+    // if (fol.closingBalance !== totalUnitsHeld) console.log('closingBalance !== totalUnitsHeld', fol, fol.closingBalance, totalUnitsHeld)
 
-    const invested = fol.transactions.reduce((total, item) => Math.round(total += item.amount), 0)
+    // const invested = fol.transactions.reduce((total, item) => Math.round(total += item.amount), 0)
     // if (Math.abs(fol.costValue - invested) > 1) {
     //    console.log('fol.costValue != invested', fol.costValue, invested, fol)
     //   // fol.transactions.forEach(t => {
@@ -1607,22 +1534,276 @@ function calculateExp(folios, fundsList) {
     //   // })
     // }
 
-    const cg = calculateCG(fol.transactions, fund.nav)
-    if (cg.realizedGain) {
-      console.log(fol.schemeName)
-      console.log(fol.closingBalance, cg)
-      console.log('')
-    }
+    // const cg = calculateCG(fol.transactions, fund.nav)
+    // if (cg.realizedGain) console.log(fol.schemeName, fol.closingBalance, cg)
+
+    const transactionsByType = Object.groupBy(fol.transactions, ({ type }) => type)
+
+    const transactionsSorted = [...fol.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const holdings = []
+    let investedAllTime = 0
+    let totalRealizedGain = 0
+    fol.transactions.forEach(t => {
+      if (['SIP', 'PURCHASE'].includes(t.type)) {
+        investedAllTime += t.amount
+        holdings.push({
+          date: t.date,
+          nav: t.nav,
+          invested: 0,
+          unitsBought: t.units,
+          unitsBalance: t.units,
+        })
+      } else if (['REDEMPTION', 'REVERSAL'].includes(t.type)) {
+        let unitsToSell = -t.units;
+        let saleValue = -t.amount;
+        let purchaseCost = 0; // cost of units being sold
+
+        while (unitsToSell > 0 && holdings.find(l => l.unitsBalance > 0)) {
+          const lot = holdings.find(l => l.unitsBalance > 0) // oldest holding/lot with non-zero units balance
+          if (lot.unitsBalance <= unitsToSell) {
+            // if oldest lot has fewer or equal units than we need to sell, sell the entire lot and move on to the next lot to sell rest of the units
+            purchaseCost += lot.unitsBalance * lot.nav;
+            unitsToSell -= lot.unitsBalance;
+            lot.unitsBalance = 0; // holdings.shift();
+          } else {
+            // if oldest lot has more units than we need to sell, sell only the required units and reduce the lot units balance
+            purchaseCost += unitsToSell * lot.nav;
+            lot.unitsBalance -= unitsToSell;
+            unitsToSell = 0;
+          }
+        }
+        totalRealizedGain += (saleValue - purchaseCost);
+      }
+    })
+    let unitBalanceCurrent = 0;
+    let investedCurrent = 0;
+    holdings.forEach(item => {
+      unitBalanceCurrent += item.unitsBalance;
+      investedCurrent += item.unitsBalance * item.nav;
+    })
+    const marketValueCurrent = unitBalanceCurrent * fund.nav
+    const totalUnrealisedGain = marketValueCurrent - investedCurrent;
+
+    console.log(fol)
+    console.log(fund.schemeName, fol.pan, fol.folioNumber)
+    console.log({investedAllTime, investedCurrent, unitBalanceCurrent, marketValueCurrent, totalRealizedGain, totalUnrealisedGain})
+    console.log(holdings)
+    console.log('')
   })
+
+  // const daily = []
+  // folios.forEach(fol => {
+  //   fol.transactions.forEach(t => {
+  //     if (['SIP', 'PURCHASE'].includes(t.type)) {
+  //       console.log('Adding investment of '+t.amount+' on '+t.date)
+  //       const existing = daily.find(d => d.date === t.date)
+  //       if (existing) {
+  //         existing.invested += t.amount
+  //       } else {
+  //         daily.push({
+  //           date: t.date,
+  //           invested: t.amount,
+  //         })
+  //       }
+  //     } else if (['REDEMPTION', 'REVERSAL'].includes(t.type)) {
+  //     }
+  //   })
+  // })
+  // daily.sort((a, b) => new Date(a.date) - new Date(b.date))
+  // daily.forEach((d, i) => {
+  //   if (i > 0) d.invested += daily[i - 1].invested
+  // })
+  // console.log('daily:', daily)
+
+  // const allTransactions = folios.reduce((acc, item) => {
+  //   const buyTxns = item.transactions.filter(t => ['SIP', 'PURCHASE'].includes(t.type))
+  //   return [...acc, ...buyTxns]
+  // }, [])
+  // allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date))
+  // console.log('allTransactions:', allTransactions)
+  // let totalInvested = 0
+  // allTransactions.forEach(t => {
+  //   totalInvested += t.amount
+  //   console.log(t.amount, totalInvested)
+  //   let existing = daily.find(d => d.date === t.date)
+  //   if (existing) {
+  //     console.log('existing:', existing)
+  //     existing.totalInvested += totalInvested
+  //   } else {
+  //     daily.push({
+  //       date: t.date,
+  //       totalInvested: totalInvested,
+  //     })
+  //   }
+  // })
+  // console.log('daily:', daily)
+}
+
+function txnType(type) {
+  if (['SIP', 'PURCHASE'].includes(type)) return 'buy';
+  else if (['REDEMPTION', 'REVERSAL'].includes(type)) return 'sell';
+  else return 'OTHER';
+}
+
+function dateISO(date) {
+  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString()
+}
+
+function calculatePerfGraph(folios, fundsList) {
+  const allTransactions = []
+  folios.forEach(fol => {
+    fol.transactions.forEach(t => {
+      allTransactions.push({
+        folioNumber: fol.folioNumber,
+        isin: fol.isin,
+        ...t,
+      })
+    })
+  })
+  allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date))
+  console.log('allTransactions:', allTransactions)
+
+  const startDate = allTransactions[0].date
+  // const startDate = '2026-05-01'
+  const endDate = allTransactions[allTransactions.length - 1].date
+  // const endDate = new Date().toISOString().slice(0, 10)
+  // let endDate = new Date()
+  // endDate = new Date(endDate.getTime() - (endDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 10)
+
+  const currentHoldings = {};
+  const currentHoldingUnits = {};
+  const currentHoldingNav = {};
+
+  const allDatesList = [];
+  let currentInvested = 0;
+  let idx = 0
+  // for each day, calculate invested amount and market value up to that day
+  for (let date = new Date(startDate); date <= new Date(endDate); date.setDate(date.getDate() + 1)) {
+    // const dateStr = date.toISOString().slice(0, 10)
+    const dateStr = dateISO(date).slice(0, 10)
+    while (idx < allTransactions.length && new Date(allTransactions[idx].date) <= date) {
+      const txn = allTransactions[idx]
+      const isin = txn.isin
+
+      if (!currentHoldings[isin]) {
+        if (txnType(txn.type) === 'buy') {
+          // first txn for a new scheme must be a buy, ignore else (sell)
+          currentHoldings[isin] = [{
+            nav: txn.nav,
+            units: txn.units,
+            date: txn.date,
+          }]
+          // currentInvested += txn.nav * txn.units;
+          currentInvested += txn.amount;
+        } else if (txnType(txn.type) === 'sell') {
+        }
+      } else {
+        if (txnType(txn.type) === 'buy') {
+          currentHoldings[isin].push({
+            date: txn.date,
+            units: txn.units,
+            nav: txn.nav,
+          })
+          // currentInvested += txn.nav * txn.units;
+          currentInvested += txn.amount;
+        } else if (txnType(txn.type) === 'sell') {
+          // deduct the purchase amount of the sold units from current invested
+          // and reduce the units balance from current holdings using FIFO method
+          let unitsToSell = -txn.units;
+          // let saleValue = -txn.amount;
+          // let purchaseCost = 0; // cost of units being sold
+          while (unitsToSell > 0 && currentHoldings[isin].find(l => l.units > 0)) {
+            const lot = currentHoldings[isin].find(l => l.units > 0) // oldest holding/lot with non-zero units balance
+            if (lot.units <= unitsToSell) {
+              // if oldest lot has fewer or equal units than we need to sell, sell the entire lot and move on to the next lot to sell rest of the units
+              // purchaseCost += lot.units * lot.nav;
+              unitsToSell -= lot.units;
+              const purchaseCostOfSoldUnits = lot.units * lot.nav;
+              currentInvested -= purchaseCostOfSoldUnits;
+              lot.units = 0;
+            } else {
+              // if oldest lot has more units than we need to sell, sell only the required units and reduce the lot units balance
+              // purchaseCost += unitsToSell * lot.nav;
+              const purchaseCostOfSoldUnits = unitsToSell * lot.nav;
+              currentInvested -= purchaseCostOfSoldUnits;
+              lot.units -= unitsToSell;
+              unitsToSell = 0;
+            }
+          }
+          // totalRealizedGain += (saleValue - purchaseCost);
+        }
+      }
+      idx++
+    } // while(txn < date)
+
+    let currentValue = 0
+
+    Object.keys(currentHoldings).forEach(isin => {
+      const holdingUnits = currentHoldings[isin].reduce((acc, holding) => acc + holding.units, 0)
+      currentHoldingUnits[isin] = holdingUnits
+    })
+    Object.keys(currentHoldings).forEach(isin => {
+      // const nav = navMap[schemeCode][format(d, 'dd-MM-yyyy')]
+      const fund = fundsList.find(f => f.isin === isin)
+      const nav = fund.navHistory?.[dateStr]
+      if (!nav) console.log('!!!', dateStr, currentHoldingNav[isin], nav, fund)
+      if (nav) { // else it will have previous day's NAV
+        currentHoldingNav[isin] = nav
+      }
+    })
+    Object.keys(currentHoldingUnits).forEach(schemeCode => {
+      currentValue += currentHoldingNav[schemeCode] * currentHoldingUnits[schemeCode]
+    })
+
+    Object.keys(currentHoldingUnits).forEach(isin => {
+      // console.log(currentHoldingNav[isin], currentHoldingUnits[isin])
+      // if (!currentHoldingNav[isin]) console.log('NONO')
+      // if (currentHoldingNav[isin]) currentValue += currentHoldingNav[isin] * currentHoldingUnits[isin]
+      currentValue += currentHoldingNav[isin] * currentHoldingUnits[isin]
+    })
+    // Object.keys(currentHoldings).forEach(isin => {
+    //   const holdingUnits = currentHoldings[isin].reduce((acc, lot) => acc + lot.units, 0)
+    //   const fund = fundsList.find(f => f.isin === isin)
+    //   const nav = fund?.navHistory?.[dateStr]
+    //   // if (!nav) console.log('not found')
+    //   if (nav) {
+    //     currentValue += holdingUnits * nav
+    //   } else {
+    //     // console.log('!!!!!', dateStr, fund)
+    //   }
+    // })
+
+    allDatesList.push({
+      date: dateStr,
+      currentInvested,
+      currentValue,
+    });
+    // console.log({
+    //   date: dateStr,
+    //   currentInvested,
+    //   currentValue,
+    // })
+  } // for (date)
+
+  console.log('allDatesList:', allDatesList)
+
+  return allDatesList;
 }
 
 function calculatePortfolioStats(casData, selectedPANs, fundsList) {
   const selectedFolios = casData.folios.filter(folio => selectedPANs.includes(folio.pan))
   // console.log('selectedFolios:', selectedFolios)
 
-  calculateExp(selectedFolios, fundsList)
+  // calculateExp(selectedFolios, fundsList)
   // calculateExp(selectedFolios.slice(0, 3), fundsList)
+  // calculateExp(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
 
+  const perfChartOpts = calculatePerfGraph(selectedFolios, fundsList)
+  // calculatePerfGraph(selectedFolios.slice(0, 3), fundsList)
+  // calculatePerfGraph(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
+
+  
   const overallStats = {
     ...calculateStats(selectedFolios, fundsList),
   }
@@ -1701,29 +1882,249 @@ function calculatePortfolioStats(casData, selectedPANs, fundsList) {
     total: overallStats,
     funds: fundStats,
     categories: categoryStats,
+    perfChartOpts,
   }
   return stats
 }
 
-function formatNumber(value, dec = 2) {
-  if (value === undefined || value === null) return '-';
-  return value.toFixed(dec);
+
+// #endregion functions
+
+
+
+// #region COMPONENTS
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  componentDidCatch(error, info) {
+    this.setState({ hasError: true, error, errorInfo: info });
+    console.group('❌ Error Caught by ErrorBoundary');
+    console.error('Error:', error);
+    console.error('Component Stack:', info.componentStack);
+    console.error('Full Stack:', error.stack);
+    console.groupEnd();
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', background: '#fee', border: '2px solid #f00', margin: '20px' }}>
+          <h2>❌ Error Occurred</h2>
+          <details open style={{ marginTop: '12px' }}>
+            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Error Message</summary>
+            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto' }}>
+              {this.state.error.message}
+            </pre>
+          </details>
+          <details style={{ marginTop: '12px' }}>
+            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Stack Trace</summary>
+            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto', fontSize: '11px' }}>
+              {this.state.error.stack}
+            </pre>
+          </details>
+          <details style={{ marginTop: '12px' }}>
+            <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>Component Stack</summary>
+            <pre style={{ background: '#fff', padding: '12px', overflow: 'auto', fontSize: '11px' }}>
+              {this.state.errorInfo?.componentStack}
+            </pre>
+          </details>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{ marginTop: '12px', padding: '8px 16px', cursor: 'pointer' }}
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
-function formatCurrency(value, dec = 0) {
-  if (value === undefined || value === null) return '₹0';
-  return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: dec });
+function PANSelector({ panAccounts, selectedPANs, onSelectionChange }) {
+  const handleToggle = (pan) => {
+    if (selectedPANs.includes(pan)) {
+      onSelectionChange(selectedPANs.filter(p => p !== pan));
+    } else {
+      onSelectionChange([...selectedPANs, pan]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onSelectionChange(Object.keys(panAccounts));
+  };
+
+  const handleClearAll = () => {
+    onSelectionChange([]);
+  };
+
+  return (
+    <>
+      <div className="pan-options">
+        {Object.entries(panAccounts).map(([pan, account]) => (
+          <label
+            key={pan}
+            className={`pan-option ${selectedPANs.includes(pan) ? 'selected' : ''}`}
+          >
+            <input
+              type="checkbox"
+              checked={selectedPANs.includes(pan)}
+              onChange={() => handleToggle(pan)}
+            />
+            <div>
+              <span style={{ fontWeight: 600 }}>{account.name.split(' ')[0].slice(0, 3)}</span> <span style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{pan.slice(0, 3)}***</span>
+            </div>
+          </label>
+        ))}
+      </div>
+      {/*
+      <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+        <button className="btn btn-secondary" onClick={handleSelectAll}>Select All</button>
+        <button className="btn btn-secondary" onClick={handleClearAll}>Clear All</button>
+      </div>
+      */}
+    </>
+  );
 }
 
-function formatPercentage(value, dec = 2) {
-  if (value === undefined || value === null) return '-';
-  return value.toFixed(dec) + '%';
+function UploadSection({ onUploadComplete }) {
+  const [file, setFile] = useState(null);
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile && selectedFile.type === 'application/pdf') {
+      setFile(selectedFile);
+      setError(null);
+    } else {
+      setError('Please select a valid PDF file');
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Please select a file');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    onUploadComplete(file, password);
+    setLoading(false);
+    // handle parsing in main App
+    // try {
+    //   // const arrayBuffer = await file.arrayBuffer();
+    //   const parsedData = await parseCAS(file, password || undefined);
+    //   console.log({parsedData})
+    //   await saveData('casData', parsedData);
+    //   // TODO: add AMFI code to funds
+    //   onUploadComplete(parsedData);
+    // } catch (err) {
+    //   console.error(err)
+    //   setError('Failed to parse CAS file: ' + err.message + ' ' + err.stack);
+    // } finally {
+    //   setLoading(false);
+    // }
+  };
+
+  return (
+    <div className="upload-section">
+      {error && <div className="error-message">{error}</div>}
+      
+      <h2>Upload CAS Statement</h2>
+      <p>Upload your CAMS Consolidated Account Statement (PDF) to get started</p>
+      
+      <div className="file-input-wrapper">
+        <input
+          type="file"
+          id="cas-file"
+          className="file-input"
+          accept=".pdf"
+          onChange={handleFileChange}
+        />
+        <label htmlFor="cas-file" className="file-label">
+          {file ? file.name : 'Choose PDF File'}
+        </label>
+      </div>
+      
+      {file && (
+        <div style={{ marginTop: '16px' }}>
+          <input
+            type="password"
+            className="password-input"
+            placeholder="Password (PAN + DOB: ABCDE1234F01011990)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          
+          <div style={{ marginTop: '16px' }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleUpload}
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : 'Upload & Parse'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '-';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+function _StatsCard({ stats }) {
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-around', gap: '0px', flexWrap: 'wrap', marginBottom: 0 }}>
+        <div style={{ fontSize: 18, fontWeight: '700', textAlign: 'left', color: 'var(--gray-900)' }}>
+          {formatCurrency(stats.marketValue)}
+        </div>
+        <div style={{ fontSize: 18, fontWeight: '600', color: stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+          {formatPercentage(stats.xirr)}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-around', gap: 0, flexWrap: 'wrap' }}>
+        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>Invested</div>
+          <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)' }}>{formatCurrency(stats.invested)}</div>
+        </div>
+
+        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>P&L</div>
+          <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(stats.pnl)}</div>
+        </div>
+
+        <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
+          <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>ABS</div>
+          <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(stats.pnlPercentage)}</div>
+        </div>
+      </div>
+
+      {stats.nav &&
+        <div className="stats-nav">
+          <span className="stats-label">NAV</span>
+          <span className="stats-value">{formatCurrency(stats.nav, 3)} on {formatDate(stats.navDate)}</span>
+          </div>
+      }
+
+      {stats.units &&
+        <div className="stats-units">
+          <span className="stats-label">Units</span>
+          <span className="stats-value">{formatNumber(stats.units, 3)}</span>
+        </div>
+      }
+      {/*}
+      <details>
+        <summary></summary>
+        <pre>{JSON.stringify(stats, null, 2)}</pre>
+      </details>
+      */}
+    </>
+  )
 }
 
 function TotalScoreCard({ stats }) {
@@ -1766,57 +2167,6 @@ function TotalScoreCard({ stats }) {
     </>
   )
 }
-// function StatsCard({ stats }) {
-//   return (
-//     <>
-//       <div style={{ display: 'flex', justifyContent: 'space-around', gap: '0px', flexWrap: 'wrap', marginBottom: 0 }}>
-//         <div style={{ fontSize: 18, fontWeight: '700', textAlign: 'left', color: 'var(--gray-900)' }}>
-//           {formatCurrency(stats.marketValue)}
-//         </div>
-//         <div style={{ fontSize: 18, fontWeight: '600', color: stats.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-//           {formatPercentage(stats.xirr)}
-//         </div>
-//       </div>
-
-//       <div style={{ display: 'flex', justifyContent: 'space-around', gap: 0, flexWrap: 'wrap' }}>
-//         <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
-//           <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>Invested</div>
-//           <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)' }}>{formatCurrency(stats.invested)}</div>
-//         </div>
-
-//         <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
-//           <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>P&L</div>
-//           <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(stats.pnl)}</div>
-//         </div>
-
-//         <div style={{ textAlign: 'center', flex: '1', minWidth: '33%' }}>
-//           <div style={{ fontSize: 10, color: 'var(--gray-600)', marginBottom: 0 }}>ABS</div>
-//           <div style={{ fontSize: 12, fontWeight: '600', color: stats.pnl > 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercentage(stats.pnlPercentage)}</div>
-//         </div>
-//       </div>
-
-//       {stats.nav &&
-//         <div className="stats-nav">
-//           <span className="stats-label">NAV</span>
-//           <span className="stats-value">{formatCurrency(stats.nav, 3)} on {formatDate(stats.navDate)}</span>
-//           </div>
-//       }
-
-//       {stats.units &&
-//         <div className="stats-units">
-//           <span className="stats-label">Units</span>
-//           <span className="stats-value">{formatNumber(stats.units, 3)}</span>
-//         </div>
-//       }
-//       {/*}
-//       <details>
-//         <summary></summary>
-//         <pre>{JSON.stringify(stats, null, 2)}</pre>
-//       </details>
-//       */}
-//     </>
-//   )
-// }
 
 function StatItem({ label, value, size }) {
   return (
@@ -1826,6 +2176,7 @@ function StatItem({ label, value, size }) {
     </div>
   )
 }
+
 function FundCard({ fund }) {
   const [expanded, setExpanded] = useState(false);
   const styles = {
@@ -2025,6 +2376,8 @@ function FundCard({ fund }) {
     </div>
   </>)
 }
+
+let lineChart
 function Dashboard({ casData, onReset }) {
   const [selectedPANs, setSelectedPANs] = useState(Object.keys(casData.pans));
   const [stats, setStats] = useState(null);
@@ -2047,7 +2400,9 @@ function Dashboard({ casData, onReset }) {
     try {
       const updatedFundsList = await Promise.all(fundsList.map(async (fund) => {
         let fundDetails = { ...fund }
-        if (!fund.amfiCode) return fundDetails
+        if (!fund.amfiCode) {
+          return fundDetails
+        }
 
         try {
           // const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}/latest`).then(r => r.json())
@@ -2059,6 +2414,10 @@ function Dashboard({ casData, onReset }) {
             navDate: navRes.data[0].date.split('-').reverse().join('-'),
             prevNav: parseFloat(navRes.data[1].nav),
             prevNavDate: navRes.data[1].date.split('-').reverse().join('-'),
+            navHistory: navRes.data.reduce((acc, n) => {
+              acc[n.date.split('-').reverse().join('-')] = parseFloat(n.nav);
+              return acc;
+            }, {}),
           }
         } catch (err) {
           console.error('Failed to fetch NAV for', fund.schemeName, err)
@@ -2107,6 +2466,10 @@ function Dashboard({ casData, onReset }) {
           navDate: navRes.data[0].date.split('-').reverse().join('-'),
           prevNav: parseFloat(navRes.data[1].nav),
           prevNavDate: navRes.data[1].date.split('-').reverse().join('-'),
+          navHistory: navRes.data.reduce((acc, n) => {
+            acc[n.date.split('-').reverse().join('-')] = parseFloat(n.nav);
+            return acc;
+          }, {}),
         };
         return fundDetails;
       }))
@@ -2180,6 +2543,34 @@ function Dashboard({ casData, onReset }) {
     return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
   }) : [];
   console.log('sortedFundsStats:', sortedFundsStats)
+
+
+
+  if (stats) {
+    const chartLabels = stats.perfChartOpts.map(d => d.date)
+    const chartDatasets = [
+      {
+        label: 'Invested',
+        data: stats.perfChartOpts.map(d => d.currentInvested),
+        pointRadius: 0,
+      },
+      {
+        label: 'Current Value',
+        data: stats.perfChartOpts.map(d => d.currentValue),
+        pointRadius: 0,
+      },
+    ]
+    console.log({chartLabels, chartDatasets})
+    if (lineChart) lineChart.destroy()
+    lineChart = new Chart(document.getElementById('myChart'), {
+      type: 'line',
+      data: {
+        labels: chartLabels,
+        datasets: chartDatasets,
+      }
+    });
+  }
+
 
   return (
     <>
@@ -2308,93 +2699,6 @@ function Dashboard({ casData, onReset }) {
     </>
   )
 }
-function UploadSection({ onUploadComplete }) {
-  const [file, setFile] = useState(null);
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
-      setFile(selectedFile);
-      setError(null);
-    } else {
-      setError('Please select a valid PDF file');
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!file) {
-      setError('Please select a file');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    onUploadComplete(file, password);
-    setLoading(false);
-    // handle parsing in main App
-    // try {
-    //   // const arrayBuffer = await file.arrayBuffer();
-    //   const parsedData = await parseCAS(file, password || undefined);
-    //   console.log({parsedData})
-    //   await saveData('casData', parsedData);
-    //   // TODO: add AMFI code to funds
-    //   onUploadComplete(parsedData);
-    // } catch (err) {
-    //   console.error(err)
-    //   setError('Failed to parse CAS file: ' + err.message + ' ' + err.stack);
-    // } finally {
-    //   setLoading(false);
-    // }
-  };
-
-  return (
-    <div className="upload-section">
-      {error && <div className="error-message">{error}</div>}
-      
-      <h2>Upload CAS Statement</h2>
-      <p>Upload your CAMS Consolidated Account Statement (PDF) to get started</p>
-      
-      <div className="file-input-wrapper">
-        <input
-          type="file"
-          id="cas-file"
-          className="file-input"
-          accept=".pdf"
-          onChange={handleFileChange}
-        />
-        <label htmlFor="cas-file" className="file-label">
-          {file ? file.name : 'Choose PDF File'}
-        </label>
-      </div>
-      
-      {file && (
-        <div style={{ marginTop: '16px' }}>
-          <input
-            type="password"
-            className="password-input"
-            placeholder="Password (PAN + DOB: ABCDE1234F01011990)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          
-          <div style={{ marginTop: '16px' }}>
-            <button
-              className="btn btn-primary"
-              onClick={handleUpload}
-              disabled={loading}
-            >
-              {loading ? 'Processing...' : 'Upload & Parse'}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-// #endregion COMPONENTS
 
 function App() {
   const [casData, setCasData] = useState(null);
@@ -2458,6 +2762,9 @@ function App() {
     </div>
   );
 }
+
+// #endregion COMPONENTS
+
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
