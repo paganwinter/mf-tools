@@ -475,7 +475,6 @@ body {
 </style>
 </head>
 <body>
-<canvas id="myChart"></canvas>
 <div id="root"></div>
 
 <!--
@@ -1650,7 +1649,7 @@ function dateISO(date) {
   return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString()
 }
 
-function calculatePerfGraph(folios, fundsList) {
+function calculateTimelineStats(folios, fundsList) {
   const allTransactions = []
   folios.forEach(fol => {
     fol.transactions.forEach(t => {
@@ -1737,53 +1736,42 @@ function calculatePerfGraph(folios, fundsList) {
       idx++
     } // while(txn < date)
 
-    let currentValue = 0
 
+    // let currentValue_ = 0
+    // Object.keys(currentHoldings).forEach(isin => {
+    //   const holdingUnits = currentHoldings[isin].reduce((acc, holding) => acc + holding.units, 0)
+    //   currentHoldingUnits[isin] = holdingUnits
+    // })
+    // Object.keys(currentHoldings).forEach(isin => {
+    //   // const nav = navMap[schemeCode][format(d, 'dd-MM-yyyy')]
+    //   const fund = fundsList.find(f => f.isin === isin)
+    //   const nav = fund.navHistory?.[dateStr]
+    //   if (nav) { // else it will have previous day's NAV
+    //     currentHoldingNav[isin] = nav
+    //   }
+    // })
+    // Object.keys(currentHoldingUnits).forEach(isin => {
+    //   currentValue_ += currentHoldingNav[isin] * currentHoldingUnits[isin]
+    // })
+
+    let currentValue = 0
     Object.keys(currentHoldings).forEach(isin => {
-      const holdingUnits = currentHoldings[isin].reduce((acc, holding) => acc + holding.units, 0)
-      currentHoldingUnits[isin] = holdingUnits
-    })
-    Object.keys(currentHoldings).forEach(isin => {
-      // const nav = navMap[schemeCode][format(d, 'dd-MM-yyyy')]
+      currentHoldingUnits[isin] = currentHoldings[isin].reduce((acc, lot) => acc + lot.units, 0)
       const fund = fundsList.find(f => f.isin === isin)
-      const nav = fund.navHistory?.[dateStr]
-      if (!nav) console.log('!!!', dateStr, currentHoldingNav[isin], nav, fund)
+      const nav = fund?.navHistory?.[dateStr]
       if (nav) { // else it will have previous day's NAV
         currentHoldingNav[isin] = nav
       }
     })
-    Object.keys(currentHoldingUnits).forEach(schemeCode => {
-      currentValue += currentHoldingNav[schemeCode] * currentHoldingUnits[schemeCode]
-    })
-
     Object.keys(currentHoldingUnits).forEach(isin => {
-      // console.log(currentHoldingNav[isin], currentHoldingUnits[isin])
-      // if (!currentHoldingNav[isin]) console.log('NONO')
-      // if (currentHoldingNav[isin]) currentValue += currentHoldingNav[isin] * currentHoldingUnits[isin]
       currentValue += currentHoldingNav[isin] * currentHoldingUnits[isin]
     })
-    // Object.keys(currentHoldings).forEach(isin => {
-    //   const holdingUnits = currentHoldings[isin].reduce((acc, lot) => acc + lot.units, 0)
-    //   const fund = fundsList.find(f => f.isin === isin)
-    //   const nav = fund?.navHistory?.[dateStr]
-    //   // if (!nav) console.log('not found')
-    //   if (nav) {
-    //     currentValue += holdingUnits * nav
-    //   } else {
-    //     // console.log('!!!!!', dateStr, fund)
-    //   }
-    // })
 
     allDatesList.push({
       date: dateStr,
       currentInvested,
       currentValue,
     });
-    // console.log({
-    //   date: dateStr,
-    //   currentInvested,
-    //   currentValue,
-    // })
   } // for (date)
 
   console.log('allDatesList:', allDatesList)
@@ -1791,17 +1779,24 @@ function calculatePerfGraph(folios, fundsList) {
   return allDatesList;
 }
 
-function calculatePortfolioStats(casData, selectedPANs, fundsList) {
-  const selectedFolios = casData.folios.filter(folio => selectedPANs.includes(folio.pan))
+function calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCategories, selectedFunds }) {
+  let selectedFolios = casData.folios
+  console.log({selectedPANs, selectedCategories, selectedFunds})
+  if (selectedPANs.length > 0) selectedFolios = selectedFolios.filter(folio => selectedPANs.includes(folio.pan))
+  if (selectedCategories.length > 0) selectedFolios = selectedFolios.filter(folio => {
+    const folioFund = fundsList.find(f => f.isin === folio.isin)
+    return selectedCategories.includes(folioFund.category)
+  })
+  if (selectedFunds.length > 0) selectedFolios = selectedFolios.filter(folio => selectedFunds.includes(folio.isin))
   // console.log('selectedFolios:', selectedFolios)
 
   // calculateExp(selectedFolios, fundsList)
   // calculateExp(selectedFolios.slice(0, 3), fundsList)
   // calculateExp(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
 
-  const perfChartOpts = calculatePerfGraph(selectedFolios, fundsList)
-  // calculatePerfGraph(selectedFolios.slice(0, 3), fundsList)
-  // calculatePerfGraph(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
+  const perfChartStats = calculateTimelineStats(selectedFolios, fundsList)
+  // calculateTimelineStats(selectedFolios.slice(0, 3), fundsList)
+  // calculateTimelineStats(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
 
   
   const overallStats = {
@@ -1882,7 +1877,7 @@ function calculatePortfolioStats(casData, selectedPANs, fundsList) {
     total: overallStats,
     funds: fundStats,
     categories: categoryStats,
-    perfChartOpts,
+    perfChartStats,
   }
   return stats
 }
@@ -1984,6 +1979,99 @@ function PANSelector({ panAccounts, selectedPANs, onSelectionChange }) {
         <button className="btn btn-secondary" onClick={handleClearAll}>Clear All</button>
       </div>
       */}
+    </>
+  );
+}
+
+function CategorySelector({ categories, selectedCategories, onSelectionChange }) {
+  const handleToggle = (category) => {
+    if (selectedCategories.includes(category)) {
+      onSelectionChange(selectedCategories.filter(c => c !== category));
+    } else {
+      onSelectionChange([...selectedCategories, category]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onSelectionChange(categories);
+  };
+
+  const handleClearAll = () => {
+    onSelectionChange([]);
+  };
+
+  return (
+    <>
+      <details>
+        <summary>
+          <span style={{ margin: 0 }}>Filter by Category</span>
+        </summary>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <button onClick={handleSelectAll} className="btn btn-link">Select All</button>
+            <button onClick={handleClearAll} className="btn btn-link">Clear All</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+          {categories.map((category) => (
+            <label key={category} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={selectedCategories.includes(category)}
+                onChange={() => handleToggle(category)}
+              />
+              <span>{category}</span>
+            </label>
+          ))}
+        </div>
+      </details>
+    </>
+  );
+}
+
+function FundSelector({ funds, selectedFunds, onSelectionChange }) {
+  const handleToggle = (isin) => {
+    if (selectedFunds.includes(isin)) {
+      onSelectionChange(selectedFunds.filter(i => i !== isin));
+    } else {
+      onSelectionChange([...selectedFunds, isin]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onSelectionChange(funds.map(f => f.isin));
+  };
+
+  const handleClearAll = () => {
+    onSelectionChange([]);
+  };
+
+  return (
+    <>
+      <details>
+        <summary>
+          <span style={{ margin: 0 }}>Filter by Fund</span>
+        </summary>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <button onClick={handleSelectAll} className="btn btn-link">Select All</button>
+            <button onClick={handleClearAll} className="btn btn-link">Clear All</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10, maxHeight: '300px', overflowY: 'auto' }}>
+          {funds.map((fund) => (
+            <label key={fund.isin} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={selectedFunds.includes(fund.isin)}
+                onChange={() => handleToggle(fund.isin)}
+              />
+              <span style={{ fontSize: '14px' }}>{fund.schemeName}</span>
+              <span style={{ color: '#666', fontSize: '12px' }}>({fund.category || 'N/A'})</span>
+            </label>
+          ))}
+        </div>
+      </details>
     </>
   );
 }
@@ -2377,9 +2465,10 @@ function FundCard({ fund }) {
   </>)
 }
 
-let lineChart
 function Dashboard({ casData, onReset }) {
   const [selectedPANs, setSelectedPANs] = useState(Object.keys(casData.pans));
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedFunds, setSelectedFunds] = useState([]);
   const [stats, setStats] = useState(null);
   const [sortBy, setSortBy] = useState('marketValue');
   const [sortDirection, setSortDirection] = useState('desc');
@@ -2479,11 +2568,24 @@ function Dashboard({ casData, onReset }) {
     updateFundsList()
   }, [casData]);
 
+  // Initialize category and ISIN filters when fundsList is loaded
+  useEffect(() => {
+    if (fundsList.length > 0) {
+      const uniqueCategories = [...new Set(fundsList.map(f => f.category).filter(Boolean))];
+      if (selectedCategories.length === 0) {
+        setSelectedCategories(uniqueCategories);
+      }
+      if (selectedFunds.length === 0) {
+        setSelectedFunds(fundsList.map(f => f.isin));
+      }
+    }
+  }, [fundsList]);
+
   useEffect(() => {
     async function updateStats() {
       if (selectedPANs.length > 0) {
         // const fundsMaster = await loadData('fundsMaster');
-        const calculatedStats = calculatePortfolioStats(casData, selectedPANs, fundsList);
+        const calculatedStats = calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCategories, selectedFunds });
         // console.log('stats:', calculatedStats)
         setStats(calculatedStats);
       } else {
@@ -2491,7 +2593,74 @@ function Dashboard({ casData, onReset }) {
       }
     }
     updateStats()
-  }, [casData, selectedPANs, fundsList]);
+  }, [casData, fundsList, selectedPANs, selectedCategories, selectedFunds]);
+
+  useEffect(() => {
+    if (!stats?.perfChartStats) return
+    const chartLabels = stats.perfChartStats.map(d => formatDate(d.date))
+    const chartDatasets = [
+      {
+        label: 'Invested',
+        data: stats.perfChartStats.map(d => d.currentInvested),
+        pointRadius: 0,
+        borderWidth: 1,
+        borderColor: '#00aa88',
+      },
+      {
+        label: 'Current Value',
+        data: stats.perfChartStats.map(d => d.currentValue),
+        pointRadius: 0,
+        borderWidth: 1,
+        borderColor: '#008844',
+      },
+    ]
+    // console.log({chartLabels, chartDatasets})
+    // if (lineChart) lineChart.destroy()
+    const perfChart = new Chart(document.getElementById('perf-chart'), {
+      type: 'line',
+      // fill: false,
+      data: {
+        labels: chartLabels,
+        datasets: chartDatasets,
+      },
+      options: {
+        interaction: {
+          mode: 'index',      // Shows all datasets at the hovered index
+          intersect: false    // Triggers tooltip even when not directly on a point
+        },
+        responsive: true,
+        maintainAspectRatio: false, // This allows the chart to fill the container's height
+        plugins: {
+          tooltip: {
+            // You can also place mode/intersect here to apply only to tooltips
+            mode: 'index',
+            intersect: false
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              callback: function(value, index, ticks) {
+                // return (this.getLabelForValue(value).startsWith('01 Jan')) ? this.getLabelForValue(value) : ''
+                return index % 2 === 0 ? this.getLabelForValue(value) : '';
+              }
+            }
+          },
+          y: {
+            ticks: {
+              callback: function(value, index, ticks) {
+                return formatCurrency(value / 100000) + 'L';
+              }
+            }
+          }
+        }
+      },
+    });
+
+    return () => {
+      perfChart.destroy()
+    }
+  }, [stats])
 
   const toggleSortDirection = () => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -2545,34 +2714,6 @@ function Dashboard({ casData, onReset }) {
   console.log('sortedFundsStats:', sortedFundsStats)
 
 
-
-  if (stats) {
-    // TODO
-    const chartLabels = stats.perfChartOpts.map(d => d.date)
-    const chartDatasets = [
-      {
-        label: 'Invested',
-        data: stats.perfChartOpts.map(d => d.currentInvested),
-        pointRadius: 0,
-      },
-      {
-        label: 'Current Value',
-        data: stats.perfChartOpts.map(d => d.currentValue),
-        pointRadius: 0,
-      },
-    ]
-    console.log({chartLabels, chartDatasets})
-    if (lineChart) lineChart.destroy()
-    lineChart = new Chart(document.getElementById('myChart'), {
-      type: 'line',
-      data: {
-        labels: chartLabels,
-        datasets: chartDatasets,
-      }
-    });
-  }
-
-
   return (
     <>
       <div className="controls" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', padding: 10 }}>
@@ -2580,6 +2721,10 @@ function Dashboard({ casData, onReset }) {
           {refreshingNav ? 'Refreshing NAV...' : 'Refresh'}
         </button>
         <button className="btn btn-danger" onClick={onReset}>Clear Data</button>
+      </div>
+
+      <div style={{ position: 'relative', height: '300px' }}>
+        <canvas id="perf-chart"></canvas>
       </div>
 
       <div className="pan-selector">
@@ -2590,6 +2735,22 @@ function Dashboard({ casData, onReset }) {
             <p>Please select at least one PAN account to view your portfolio</p>
           </div>
         )}
+      </div>
+
+      <div className="category-selector" style={{ marginTop: 20 }}>
+        <CategorySelector 
+          categories={[...new Set(fundsList.map(f => f.category).filter(Boolean))]} 
+          selectedCategories={selectedCategories} 
+          onSelectionChange={setSelectedCategories} 
+        />
+      </div>
+
+      <div className="fund-selector" style={{ marginTop: 20 }}>
+        <FundSelector 
+          funds={fundsList.filter(f => f.schemeName)} 
+          selectedFunds={selectedFunds} 
+          onSelectionChange={setSelectedFunds} 
+        />
       </div>
 
       {/*
