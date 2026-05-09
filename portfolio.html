@@ -1433,6 +1433,7 @@ function calculateStats(folios, fundsList) {
   const pnl = marketValue - costValue
   const pnlPercentage = (pnl / costValue) * 100
   const xirrValue = calculateXirr(cashflows)
+  // console.log('calcStats: xirr:', xirrValue*100, cashflows)
   const xirrPercentage = xirrValue !== null ? xirrValue * 100 : null;
 
   // console.log(marketValue, marketValuePrev, dailyChange)
@@ -1701,9 +1702,10 @@ function calculateTimelineStats(allTransactions, fundsList) {
   const allDatesList = [];
   let currentInvested = 0;
   let idx = 0
+  const cashflows = []
   for (let date = new Date(startDate); date <= new Date(endDate); date.setDate(date.getDate() + 1)) {
     const dateStr = dateToStr(date)
-    const cashflows = []
+
     // for each day, calculate invested amount and market value up to that day
     while (idx < allTransactions.length && new Date(allTransactions[idx].date) <= date) {
       const txn = allTransactions[idx]
@@ -1757,19 +1759,20 @@ function calculateTimelineStats(allTransactions, fundsList) {
       }
 
 
-      // // #region XIRR
-      // let cashflowAmount = txn.amount;
-      // if (txn.type === 'PURCHASE' || txn.type === 'SIP') {
-      //   cashflowAmount = -Math.abs(cashflowAmount);
-      // } else if (txn.type === 'REDEMPTION' || txn.type === 'DIVIDEND') {
-      //   cashflowAmount = Math.abs(cashflowAmount);
-      // } else if (txn.type === 'REVERSAL') {
-      //   cashflowAmount = Math.abs(cashflowAmount);
-      // } else {
-      //   cashflowAmount = -cashflowAmount
-      // }
-      // cashflows.push({ date: txn.date, amount: cashflowAmount });
-      // // #endregion XIRR
+      // #region XIRR
+      let cashflowAmount = txn.amount;
+      if (txn.type === 'PURCHASE' || txn.type === 'SIP') {
+        cashflowAmount = -Math.abs(cashflowAmount);
+      } else if (txn.type === 'REDEMPTION' || txn.type === 'DIVIDEND') {
+        cashflowAmount = Math.abs(cashflowAmount);
+      } else if (txn.type === 'REVERSAL') {
+        cashflowAmount = Math.abs(cashflowAmount);
+      } else {
+        // cashflowAmount = -cashflowAmount
+      }
+      cashflows.push({ date: txn.date, amount: cashflowAmount });
+      // console.log('push', dateStr, { date: txn.date, amount: cashflowAmount }, cashflows)
+      // #endregion XIRR
 
       idx++
     } // while(txn < date)
@@ -1786,10 +1789,13 @@ function calculateTimelineStats(allTransactions, fundsList) {
       currentMarketValue += currentHoldingNavByFund[isin] * currentHoldingUnitsByFund[isin]
     })
 
-    // // TODO: xirr
-    // cashflows.push({ date: new Date(dateStr), amount: currentMarketValue });
-    // const xirrValue = calculateXirr(cashflows);
-    // const xirr = xirrValue * 100;
+    let xirrValue = 0
+    let xirrPercentage = 0
+    // if (dateStr.endsWith('-01') || dateStr.endsWith('-15') || dateStr === endDate) {
+    if ((dateStr.split('-')[2] % 10) === 0 || dateStr === endDate) {
+      xirrValue = calculateXirr([...cashflows, { date: dateStr, amount: currentMarketValue }]);
+      xirrPercentage = xirrValue !== null ? xirrValue * 100 : null;
+    }
 
     allDatesList.push({
       date: dateStr,
@@ -1797,7 +1803,9 @@ function calculateTimelineStats(allTransactions, fundsList) {
       currentMarketValue,
       currentPnL: currentMarketValue - currentInvested,
       currentPnLPerc: (currentMarketValue - currentInvested) / currentInvested * 100,
-      // xirr,
+      cashflows,
+      xirrValue,
+      xirr: xirrPercentage,
     });
   } // for (date)
 
@@ -2650,6 +2658,7 @@ function Dashboard({ casData, onReset }) {
         borderWidth: 1,
         borderColor: '#66ddff',
         // fill: true,
+        yAxisID: 'y',
       },
       {
         label: 'Current Value',
@@ -2657,6 +2666,7 @@ function Dashboard({ casData, onReset }) {
         pointRadius: 0,
         borderWidth: 1,
         borderColor: '#22bbff',
+        yAxisID: 'y',
       },
       {
         label: 'PnL',
@@ -2664,6 +2674,7 @@ function Dashboard({ casData, onReset }) {
         pointRadius: 0,
         borderWidth: 1,
         borderColor: '#22ff88',
+        yAxisID: 'y',
       },
       {
         label: 'PnL %',
@@ -2671,15 +2682,25 @@ function Dashboard({ casData, onReset }) {
         pointRadius: 0,
         borderWidth: 1,
         borderColor: '#22ff88',
+        yAxisID: 'y2',
       },
-      // {
-      //   label: 'XIRR',
-      //   data: stats.perfChartStats.map(d => formatNumber(d.xirr, 2)),
-      //   pointRadius: 0,
-      //   borderWidth: 1,
-      //   borderColor: '#22ff88',
-      // },
+      {
+        label: 'XIRR %',
+        // type: 'bar',
+        data: stats.perfChartStats.map(d => formatNumber(d.xirr, 2)),
+        pointRadius: 0,
+        borderWidth: 1,
+        borderColor: '#444444',
+        yAxisID: 'y2',
+      },
     ]
+
+    console.log('>>>', stats.perfChartStats)
+    console.log('>>>', stats.perfChartStats.map(d => d.xirr).filter(x => x !== null))
+    // stats.perfChartStats.forEach(i => {
+    //   if (i.xirr) console.log(i.date, i.xirr)
+    // })
+
     const perfChart = new Chart(document.getElementById('perf-chart'), {
       type: 'line',
       // fill: false,
@@ -2740,9 +2761,21 @@ function Dashboard({ casData, onReset }) {
             }
           },
           y: {
+            position: 'left',
             ticks: {
               callback: function(value, index, ticks) {
                 return formatCurrency(value / 100000) + 'L';
+              }
+            }
+          },
+          y2: {
+            position: 'right',
+            grid: {
+              drawOnChartArea: false,
+            },
+            ticks: {
+              callback: function(value, index, ticks) {
+                return formatPercentage(value);
               }
             }
           }
