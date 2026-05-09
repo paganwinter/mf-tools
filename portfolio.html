@@ -2775,7 +2775,7 @@ function Dashboard({ casData, onReset }) {
             },
             ticks: {
               callback: function(value, index, ticks) {
-                return formatPercentage(value);
+                return formatPercentage(value, 0);
               }
             }
           }
