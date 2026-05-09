@@ -12,6 +12,8 @@
 <script src="js/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 <style>
 * {
   margin: 0;
@@ -1270,18 +1272,30 @@ function roundNum(num, decimals = 2) {
 }
 
 function formatNumber(value, dec = 2) {
+  // return 'xxx'; // mask
   if (value === undefined || value === null) return '-';
   return value.toFixed(dec);
 }
 
 function formatCurrency(value, dec = 0) {
   if (value === undefined || value === null) return '₹0';
+  // return '₹ XXX'; // mask
   return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: dec });
 }
 
 function formatPercentage(value, dec = 2) {
   if (value === undefined || value === null) return '-';
+  // return 'XX.X %'; // mask
   return value.toFixed(dec) + '%';
+}
+
+function formatName(value) {
+  // return 'Name'; // mask
+  return value.split(' ')[0].substring(0, 3)
+}
+function formatPAN(value) {
+  // return 'PAN***'; // mask
+  return value.substring(0, 3)+'***'
 }
 
 function formatDate(dateStr) {
@@ -1289,6 +1303,17 @@ function formatDate(dateStr) {
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+
+function txnType(type) {
+  if (['SIP', 'PURCHASE'].includes(type)) return 'buy';
+  else if (['REDEMPTION', 'REVERSAL'].includes(type)) return 'sell';
+  else return 'OTHER';
+}
+
+function dateToStr(date) {
+  return date.toISOString().slice(0, 10)
+}
+
 
 function calculateXirr(cashflows) {
   if (cashflows.length < 2) return null;
@@ -1518,202 +1543,172 @@ function calculateStats(folios, fundsList) {
 //   };
 // }
 
-function calculateExp(folios, fundsList) {
-  folios.forEach(fol => {
-    const fund = fundsList.find(f => f.isin === fol.isin)
+// function calculateExp(folios, fundsList) {
+//   folios.forEach(fol => {
+//     const fund = fundsList.find(f => f.isin === fol.isin)
 
-    // const totalUnitsHeld = +fol.transactions.reduce((total, item) => total += item.units, 0).toFixed(3)
-    // if (fol.closingBalance !== totalUnitsHeld) console.log('closingBalance !== totalUnitsHeld', fol, fol.closingBalance, totalUnitsHeld)
+//     // const totalUnitsHeld = +fol.transactions.reduce((total, item) => total += item.units, 0).toFixed(3)
+//     // if (fol.closingBalance !== totalUnitsHeld) console.log('closingBalance !== totalUnitsHeld', fol, fol.closingBalance, totalUnitsHeld)
 
-    // const invested = fol.transactions.reduce((total, item) => Math.round(total += item.amount), 0)
-    // if (Math.abs(fol.costValue - invested) > 1) {
-    //    console.log('fol.costValue != invested', fol.costValue, invested, fol)
-    //   // fol.transactions.forEach(t => {
-    //   //   if (t.type !== 'STAMP_DUTY') console.log(t.date, t.type, t.amount, t.units)
-    //   // })
-    // }
+//     // const invested = fol.transactions.reduce((total, item) => Math.round(total += item.amount), 0)
+//     // if (Math.abs(fol.costValue - invested) > 1) {
+//     //    console.log('fol.costValue != invested', fol.costValue, invested, fol)
+//     //   // fol.transactions.forEach(t => {
+//     //   //   if (t.type !== 'STAMP_DUTY') console.log(t.date, t.type, t.amount, t.units)
+//     //   // })
+//     // }
 
-    // const cg = calculateCG(fol.transactions, fund.nav)
-    // if (cg.realizedGain) console.log(fol.schemeName, fol.closingBalance, cg)
+//     // const cg = calculateCG(fol.transactions, fund.nav)
+//     // if (cg.realizedGain) console.log(fol.schemeName, fol.closingBalance, cg)
 
-    const transactionsByType = Object.groupBy(fol.transactions, ({ type }) => type)
+//     const transactionsByType = Object.groupBy(fol.transactions, ({ type }) => type)
 
-    const transactionsSorted = [...fol.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+//     const transactionsSorted = [...fol.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    const holdings = []
-    let investedAllTime = 0
-    let totalRealizedGain = 0
-    fol.transactions.forEach(t => {
-      if (['SIP', 'PURCHASE'].includes(t.type)) {
-        investedAllTime += t.amount
-        holdings.push({
-          date: t.date,
-          nav: t.nav,
-          invested: 0,
-          unitsBought: t.units,
-          unitsBalance: t.units,
-        })
-      } else if (['REDEMPTION', 'REVERSAL'].includes(t.type)) {
-        let unitsToSell = -t.units;
-        let saleValue = -t.amount;
-        let purchaseCost = 0; // cost of units being sold
+//     const holdings = []
+//     let investedAllTime = 0
+//     let totalRealizedGain = 0
+//     fol.transactions.forEach(t => {
+//       if (['SIP', 'PURCHASE'].includes(t.type)) {
+//         investedAllTime += t.amount
+//         holdings.push({
+//           date: t.date,
+//           nav: t.nav,
+//           invested: 0,
+//           unitsBought: t.units,
+//           unitsBalance: t.units,
+//         })
+//       } else if (['REDEMPTION', 'REVERSAL'].includes(t.type)) {
+//         let unitsToSell = -t.units;
+//         let saleValue = -t.amount;
+//         let purchaseCost = 0; // cost of units being sold
 
-        while (unitsToSell > 0 && holdings.find(l => l.unitsBalance > 0)) {
-          const lot = holdings.find(l => l.unitsBalance > 0) // oldest holding/lot with non-zero units balance
-          if (lot.unitsBalance <= unitsToSell) {
-            // if oldest lot has fewer or equal units than we need to sell, sell the entire lot and move on to the next lot to sell rest of the units
-            purchaseCost += lot.unitsBalance * lot.nav;
-            unitsToSell -= lot.unitsBalance;
-            lot.unitsBalance = 0; // holdings.shift();
-          } else {
-            // if oldest lot has more units than we need to sell, sell only the required units and reduce the lot units balance
-            purchaseCost += unitsToSell * lot.nav;
-            lot.unitsBalance -= unitsToSell;
-            unitsToSell = 0;
-          }
-        }
-        totalRealizedGain += (saleValue - purchaseCost);
-      }
-    })
-    let unitBalanceCurrent = 0;
-    let investedCurrent = 0;
-    holdings.forEach(item => {
-      unitBalanceCurrent += item.unitsBalance;
-      investedCurrent += item.unitsBalance * item.nav;
-    })
-    const marketValueCurrent = unitBalanceCurrent * fund.nav
-    const totalUnrealisedGain = marketValueCurrent - investedCurrent;
+//         while (unitsToSell > 0 && holdings.find(l => l.unitsBalance > 0)) {
+//           const lot = holdings.find(l => l.unitsBalance > 0) // oldest holding/lot with non-zero units balance
+//           if (lot.unitsBalance <= unitsToSell) {
+//             // if oldest lot has fewer or equal units than we need to sell, sell the entire lot and move on to the next lot to sell rest of the units
+//             purchaseCost += lot.unitsBalance * lot.nav;
+//             unitsToSell -= lot.unitsBalance;
+//             lot.unitsBalance = 0; // holdings.shift();
+//           } else {
+//             // if oldest lot has more units than we need to sell, sell only the required units and reduce the lot units balance
+//             purchaseCost += unitsToSell * lot.nav;
+//             lot.unitsBalance -= unitsToSell;
+//             unitsToSell = 0;
+//           }
+//         }
+//         totalRealizedGain += (saleValue - purchaseCost);
+//       }
+//     })
+//     let unitBalanceCurrent = 0;
+//     let investedCurrent = 0;
+//     holdings.forEach(item => {
+//       unitBalanceCurrent += item.unitsBalance;
+//       investedCurrent += item.unitsBalance * item.nav;
+//     })
+//     const marketValueCurrent = unitBalanceCurrent * fund.nav
+//     const totalUnrealisedGain = marketValueCurrent - investedCurrent;
 
-    console.log(fol)
-    console.log(fund.schemeName, fol.pan, fol.folioNumber)
-    console.log({investedAllTime, investedCurrent, unitBalanceCurrent, marketValueCurrent, totalRealizedGain, totalUnrealisedGain})
-    console.log(holdings)
-    console.log('')
-  })
+//     console.log(fol)
+//     console.log(fund.schemeName, fol.pan, fol.folioNumber)
+//     console.log({investedAllTime, investedCurrent, unitBalanceCurrent, marketValueCurrent, totalRealizedGain, totalUnrealisedGain})
+//     console.log(holdings)
+//     console.log('')
+//   })
 
-  // const daily = []
-  // folios.forEach(fol => {
-  //   fol.transactions.forEach(t => {
-  //     if (['SIP', 'PURCHASE'].includes(t.type)) {
-  //       console.log('Adding investment of '+t.amount+' on '+t.date)
-  //       const existing = daily.find(d => d.date === t.date)
-  //       if (existing) {
-  //         existing.invested += t.amount
-  //       } else {
-  //         daily.push({
-  //           date: t.date,
-  //           invested: t.amount,
-  //         })
-  //       }
-  //     } else if (['REDEMPTION', 'REVERSAL'].includes(t.type)) {
-  //     }
-  //   })
-  // })
-  // daily.sort((a, b) => new Date(a.date) - new Date(b.date))
-  // daily.forEach((d, i) => {
-  //   if (i > 0) d.invested += daily[i - 1].invested
-  // })
-  // console.log('daily:', daily)
+//   // const daily = []
+//   // folios.forEach(fol => {
+//   //   fol.transactions.forEach(t => {
+//   //     if (['SIP', 'PURCHASE'].includes(t.type)) {
+//   //       console.log('Adding investment of '+t.amount+' on '+t.date)
+//   //       const existing = daily.find(d => d.date === t.date)
+//   //       if (existing) {
+//   //         existing.invested += t.amount
+//   //       } else {
+//   //         daily.push({
+//   //           date: t.date,
+//   //           invested: t.amount,
+//   //         })
+//   //       }
+//   //     } else if (['REDEMPTION', 'REVERSAL'].includes(t.type)) {
+//   //     }
+//   //   })
+//   // })
+//   // daily.sort((a, b) => new Date(a.date) - new Date(b.date))
+//   // daily.forEach((d, i) => {
+//   //   if (i > 0) d.invested += daily[i - 1].invested
+//   // })
+//   // console.log('daily:', daily)
 
-  // const allTransactions = folios.reduce((acc, item) => {
-  //   const buyTxns = item.transactions.filter(t => ['SIP', 'PURCHASE'].includes(t.type))
-  //   return [...acc, ...buyTxns]
-  // }, [])
-  // allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date))
-  // console.log('allTransactions:', allTransactions)
-  // let totalInvested = 0
-  // allTransactions.forEach(t => {
-  //   totalInvested += t.amount
-  //   console.log(t.amount, totalInvested)
-  //   let existing = daily.find(d => d.date === t.date)
-  //   if (existing) {
-  //     console.log('existing:', existing)
-  //     existing.totalInvested += totalInvested
-  //   } else {
-  //     daily.push({
-  //       date: t.date,
-  //       totalInvested: totalInvested,
-  //     })
-  //   }
-  // })
-  // console.log('daily:', daily)
-}
+//   // const allTransactions = folios.reduce((acc, item) => {
+//   //   const buyTxns = item.transactions.filter(t => ['SIP', 'PURCHASE'].includes(t.type))
+//   //   return [...acc, ...buyTxns]
+//   // }, [])
+//   // allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date))
+//   // console.log('allTransactions:', allTransactions)
+//   // let totalInvested = 0
+//   // allTransactions.forEach(t => {
+//   //   totalInvested += t.amount
+//   //   console.log(t.amount, totalInvested)
+//   //   let existing = daily.find(d => d.date === t.date)
+//   //   if (existing) {
+//   //     console.log('existing:', existing)
+//   //     existing.totalInvested += totalInvested
+//   //   } else {
+//   //     daily.push({
+//   //       date: t.date,
+//   //       totalInvested: totalInvested,
+//   //     })
+//   //   }
+//   // })
+//   // console.log('daily:', daily)
+// }
 
-function txnType(type) {
-  if (['SIP', 'PURCHASE'].includes(type)) return 'buy';
-  else if (['REDEMPTION', 'REVERSAL'].includes(type)) return 'sell';
-  else return 'OTHER';
-}
-
-function dateISO(date) {
-  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString()
-}
-
-function calculateTimelineStats(folios, fundsList) {
-  const allTransactions = []
-  folios.forEach(fol => {
-    fol.transactions.forEach(t => {
-      allTransactions.push({
-        folioNumber: fol.folioNumber,
-        isin: fol.isin,
-        ...t,
-      })
-    })
-  })
-  allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date))
-  console.log('allTransactions:', allTransactions)
-
+function calculateTimelineStats(allTransactions, fundsList) {
   const startDate = allTransactions[0].date
-  // const startDate = '2026-05-01'
-  // const endDate = allTransactions[allTransactions.length - 1].date
-  const endDate = dateISO(new Date()).slice(0, 10)
-  // let endDate = new Date()
-  // endDate = new Date(endDate.getTime() - (endDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 10)
+  const endDate = dateToStr(new Date())
 
-  const currentHoldings = {};
-  const currentHoldingUnits = {};
-  const currentHoldingNav = {};
+  const currentHoldingsByFund = {};
+  const currentHoldingUnitsByFund = {};
+  const currentHoldingNavByFund = {};
 
   const allDatesList = [];
   let currentInvested = 0;
   let idx = 0
-  // for each day, calculate invested amount and market value up to that day
   for (let date = new Date(startDate); date <= new Date(endDate); date.setDate(date.getDate() + 1)) {
-    // const dateStr = date.toISOString().slice(0, 10)
-    const dateStr = dateISO(date).slice(0, 10)
+    const dateStr = dateToStr(date)
+    // for each day, calculate invested amount and market value up to that day
     while (idx < allTransactions.length && new Date(allTransactions[idx].date) <= date) {
       const txn = allTransactions[idx]
       const isin = txn.isin
 
-      if (!currentHoldings[isin]) {
+      if (!currentHoldingsByFund[isin]) {
         if (txnType(txn.type) === 'buy') {
           // first txn for a new scheme must be a buy, ignore else (sell)
-          currentHoldings[isin] = [{
+          currentHoldingsByFund[isin] = [{
             nav: txn.nav,
             units: txn.units,
             date: txn.date,
           }]
-          // currentInvested += txn.nav * txn.units;
-          currentInvested += txn.amount;
+          currentInvested += txn.amount; // txn.nav * txn.units;
         } else if (txnType(txn.type) === 'sell') {
         }
       } else {
         if (txnType(txn.type) === 'buy') {
-          currentHoldings[isin].push({
+          currentHoldingsByFund[isin].push({
             date: txn.date,
             units: txn.units,
             nav: txn.nav,
           })
-          // currentInvested += txn.nav * txn.units;
-          currentInvested += txn.amount;
+          currentInvested += txn.amount; // txn.nav * txn.units
         } else if (txnType(txn.type) === 'sell') {
           // deduct the purchase amount of the sold units from current invested
           // and reduce the units balance from current holdings using FIFO method
           let unitsToSell = -txn.units;
           // let saleValue = -txn.amount;
           // let purchaseCost = 0; // cost of units being sold
-          while (unitsToSell > 0 && currentHoldings[isin].find(l => l.units > 0)) {
-            const lot = currentHoldings[isin].find(l => l.units > 0) // oldest holding/lot with non-zero units balance
+          while (unitsToSell > 0 && currentHoldingsByFund[isin].find(l => l.units > 0)) {
+            const lot = currentHoldingsByFund[isin].find(l => l.units > 0) // oldest holding/lot with non-zero units balance
             if (lot.units <= unitsToSell) {
               // if oldest lot has fewer or equal units than we need to sell, sell the entire lot and move on to the next lot to sell rest of the units
               // purchaseCost += lot.units * lot.nav;
@@ -1738,39 +1733,43 @@ function calculateTimelineStats(folios, fundsList) {
 
 
     // let currentValue_ = 0
-    // Object.keys(currentHoldings).forEach(isin => {
-    //   const holdingUnits = currentHoldings[isin].reduce((acc, holding) => acc + holding.units, 0)
-    //   currentHoldingUnits[isin] = holdingUnits
+    // Object.keys(currentHoldingsByFund).forEach(isin => {
+    //   const holdingUnits = currentHoldingsByFund[isin].reduce((acc, holding) => acc + holding.units, 0)
+    //   currentHoldingUnitsByFund[isin] = holdingUnits
     // })
-    // Object.keys(currentHoldings).forEach(isin => {
+    // Object.keys(currentHoldingsByFund).forEach(isin => {
     //   // const nav = navMap[schemeCode][format(d, 'dd-MM-yyyy')]
     //   const fund = fundsList.find(f => f.isin === isin)
     //   const nav = fund.navHistory?.[dateStr]
     //   if (nav) { // else it will have previous day's NAV
-    //     currentHoldingNav[isin] = nav
+    //     currentHoldingNavByFund[isin] = nav
     //   }
     // })
-    // Object.keys(currentHoldingUnits).forEach(isin => {
-    //   currentValue_ += currentHoldingNav[isin] * currentHoldingUnits[isin]
+    // Object.keys(currentHoldingUnitsByFund).forEach(isin => {
+    //   currentValue_ += currentHoldingNavByFund[isin] * currentHoldingUnitsByFund[isin]
     // })
 
-    let currentValue = 0
-    Object.keys(currentHoldings).forEach(isin => {
-      currentHoldingUnits[isin] = currentHoldings[isin].reduce((acc, lot) => acc + lot.units, 0)
+    let currentMarketValue = 0
+    Object.keys(currentHoldingsByFund).forEach(isin => {
+      currentHoldingUnitsByFund[isin] = currentHoldingsByFund[isin].reduce((acc, lot) => acc + lot.units, 0)
       const fund = fundsList.find(f => f.isin === isin)
       const nav = fund?.navHistory?.[dateStr]
       if (nav) { // else it will have previous day's NAV
-        currentHoldingNav[isin] = nav
+        currentHoldingNavByFund[isin] = nav
       }
+      currentMarketValue += currentHoldingNavByFund[isin] * currentHoldingUnitsByFund[isin]
     })
-    Object.keys(currentHoldingUnits).forEach(isin => {
-      currentValue += currentHoldingNav[isin] * currentHoldingUnits[isin]
-    })
+
+    // TODO: xirr
+    const xirr = 0;
 
     allDatesList.push({
       date: dateStr,
       currentInvested,
-      currentValue,
+      currentMarketValue,
+      currentPnL: currentMarketValue - currentInvested,
+      currentPnLPerc: (currentMarketValue - currentInvested) / currentInvested * 100,
+      xirr,
     });
   } // for (date)
 
@@ -1794,9 +1793,21 @@ function calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCat
   // calculateExp(selectedFolios.slice(0, 3), fundsList)
   // calculateExp(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
 
-  const perfChartStats = calculateTimelineStats(selectedFolios, fundsList)
-  // calculateTimelineStats(selectedFolios.slice(0, 3), fundsList)
-  // calculateTimelineStats(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
+  const allTransactions = []
+  selectedFolios.forEach(fol => {
+    fol.transactions.forEach(t => {
+      allTransactions.push({
+        folioNumber: fol.folioNumber,
+        isin: fol.isin,
+        ...t,
+      })
+    })
+  })
+  allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date))
+  console.log('allTransactions:', allTransactions)
+  const perfChartStats = calculateTimelineStats(allTransactions, fundsList)
+  // const perfChartStats = calculateTimelineStats(selectedFolios.slice(0, 3), fundsList)
+  // const perfChartStats = calculateTimelineStats(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
 
   
   const overallStats = {
@@ -1881,7 +1892,6 @@ function calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCat
   }
   return stats
 }
-
 
 // #endregion functions
 
@@ -1968,7 +1978,8 @@ function PANSelector({ panAccounts, selectedPANs, onSelectionChange }) {
               onChange={() => handleToggle(pan)}
             />
             <div>
-              <span style={{ fontWeight: 600 }}>{account.name.split(' ')[0].slice(0, 3)}</span> <span style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{pan.slice(0, 3)}***</span>
+              <span style={{ fontWeight: 600 }}>{formatName(account.name)}</span>&nbsp;
+              <span style={{ fontSize: '12px', color: 'var(--gray-500)' }}>{formatPAN(pan)}</span>
             </div>
           </label>
         ))}
@@ -2341,7 +2352,7 @@ function FundCard({ fund }) {
           {Object.values(fund.pans).map(pan => (
             <div key={pan.panNumber} className="pan-summary" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 6 }}>
               <div>
-                <span style={{ fontWeight: 'bold' }}>{pan.panName.split(' ')[0]}</span> <span style={{ color: 'var(--gray-500)' }}>{pan.panNumber.slice(0, 3)}***</span>
+                <span style={{ fontWeight: 'bold' }}>{formatName(pan.panName)}</span> <span style={{ color: 'var(--gray-500)' }}>{formatPAN(pan.panNumber)}</span>
               </div>
               <div>
                 <span style={{ fontWeight: 'bold' }}>
@@ -2363,8 +2374,8 @@ function FundCard({ fund }) {
             <div key={pan.panNumber} className="pan-section" style={{ borderBottom: '1px solid #ddd' }}>
               <div style={{ display: 'flex' }}>
                 <div className="pan-name" style={{ fontSize: '12px', width: '70%' }}>
-                  <div style={{ fontWeight: 'bold' }}>{pan.panName.split(' ')[0]}</div>
-                  <div>{pan.panNumber.slice(0, 3)}***</div>
+                  <div style={{ fontWeight: 'bold' }}>{formatName(pan.panName)}</div>
+                  <div>{formatPAN(pan.panNumber)}</div>
                   <div>
                     <span style={styles.fundStatsLabel}>Daily</span>
                     <span style={{ fontSize: 12, color: pan.stats.dailyChange >= 0 ? 'var(--success)' : 'var(--danger)' }}>
@@ -2601,21 +2612,34 @@ function Dashboard({ casData, onReset }) {
     const chartDatasets = [
       {
         label: 'Invested',
-        data: stats.perfChartStats.map(d => d.currentInvested),
+        data: stats.perfChartStats.map(d => formatNumber(d.currentInvested, 0)),
         pointRadius: 0,
         borderWidth: 1,
-        borderColor: '#00aa88',
+        borderColor: '#66ddff',
+        // fill: true,
       },
       {
         label: 'Current Value',
-        data: stats.perfChartStats.map(d => d.currentValue),
+        data: stats.perfChartStats.map(d => formatNumber(d.currentMarketValue, 0)),
         pointRadius: 0,
         borderWidth: 1,
-        borderColor: '#008844',
+        borderColor: '#22bbff',
+      },
+      {
+        label: 'PnL',
+        data: stats.perfChartStats.map(d => formatNumber(d.currentPnL, 0)),
+        pointRadius: 0,
+        borderWidth: 1,
+        borderColor: '#22ff88',
+      },
+      {
+        label: 'PnL %',
+        data: stats.perfChartStats.map(d => formatNumber(d.currentPnLPerc, 2)),
+        pointRadius: 0,
+        borderWidth: 1,
+        borderColor: '#22ff88',
       },
     ]
-    // console.log({chartLabels, chartDatasets})
-    // if (lineChart) lineChart.destroy()
     const perfChart = new Chart(document.getElementById('perf-chart'), {
       type: 'line',
       // fill: false,
@@ -2634,7 +2658,35 @@ function Dashboard({ casData, onReset }) {
           tooltip: {
             // You can also place mode/intersect here to apply only to tooltips
             mode: 'index',
-            intersect: false
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                let label = context.dataset.label || '';
+                let value = ''
+                if (context.parsed.y !== null) {
+                  if (label.includes('%')) value = formatPercentage(context.parsed.y)
+                  else value = formatCurrency(context.parsed.y);
+                }
+                return `${label}: ${value}`;
+              }
+            },
+          },
+          zoom: {
+            zoom: {
+              wheel: {
+                enabled: true, // Enable mouse wheel zooming
+              },
+              pinch: {
+                enabled: true // Enable pinch zooming for touch devices
+              },
+              // mode: 'xy', // Allow zooming on both x and y axes
+              mode: 'xy',
+            },
+            pan: {
+              enabled: true, // Enable panning
+              // mode: 'xy',
+              mode: 'x',
+            }
           }
         },
         scales: {
@@ -2642,7 +2694,8 @@ function Dashboard({ casData, onReset }) {
             ticks: {
               callback: function(value, index, ticks) {
                 // return (this.getLabelForValue(value).startsWith('01 Jan')) ? this.getLabelForValue(value) : ''
-                return index % 2 === 0 ? this.getLabelForValue(value) : '';
+                const [, mon, year] = this.getLabelForValue(value).split(' ');
+                return index % 2 === 0 ? `${mon.substring(0, 3)} ${year.substring(2, 4)}` : '';
               }
             }
           },
