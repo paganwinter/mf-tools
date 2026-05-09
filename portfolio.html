@@ -2317,7 +2317,10 @@ function FundCard({ fund }) {
     <div className="fund-item" style={{ marginBottom: 10, padding: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 10, overflow: 'hidden' }}>
       <div className="fund-summary" onClick={() => setExpanded(!expanded)} style={{ display: 'flex', background: '#eee', padding: 5 }}>
         <div className="fund-info" style={{ width: '70%', fontSize: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)', margin: 0 }}>{fund.schemeName.length < 50 ? fund.schemeName : fund.schemeName.slice(0, 50)+'...'}</div>
+          {expanded
+            ? <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)', margin: 0 }}>{fund.schemeName}</div>
+            : <div style={{ fontSize: 12, fontWeight: '600', color: 'var(--gray-900)', margin: 0 }}>{fund.schemeName.length < 50 ? fund.schemeName : fund.schemeName.slice(0, 50)+'...'}</div>
+          }
           <div style={{}}>{fund.category}</div>
           <div>
             <span style={styles.fundStatsLabel}>Daily</span>
