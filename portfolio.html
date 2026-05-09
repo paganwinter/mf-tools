@@ -2784,14 +2784,15 @@ function Dashboard({ casData, onReset }) {
       },
     })
 
+    const fundsSorted = stats.funds.sort((a, b) => a.stats.allocationPercentage - b.stats.allocationPercentage)
     const fundAllocChart = new Chart(document.getElementById('fund-alloc-chart'), {
       type: 'pie',
       data: {
-        labels: stats.funds.map(fund => fund.schemeName),
+        labels: fundsSorted.map(fund => fund.schemeName),
         datasets: [
           {
             label: 'Funds',
-            data: stats.funds.map(fund => fund.stats.allocationPercentage)
+            data: fundsSorted.map(fund => fund.stats.allocationPercentage)
           },
         ]
       },
@@ -2803,19 +2804,21 @@ function Dashboard({ casData, onReset }) {
           },
           title: {
             display: true,
-            text: 'Fund Share'
+            text: 'Funds Total Share'
           }
         }
       },
     })
+
+    const fundSipsSorted = stats.funds.filter(fund => fund.stats.sip).sort((a, b) => a.stats.sip - b.stats.sip)
     const fundSipAllocChart = new Chart(document.getElementById('fund-sip-alloc-chart'), {
       type: 'pie',
       data: {
-        labels: stats.funds.map(fund => fund.schemeName),
+        labels: fundSipsSorted.map(fund => fund.schemeName),
         datasets: [
           {
             label: 'Funds',
-            data: stats.funds.map(fund => fund.stats.sip)
+            data: fundSipsSorted.map(fund => fund.stats.sip)
           },
         ]
       },
@@ -2827,7 +2830,7 @@ function Dashboard({ casData, onReset }) {
           },
           title: {
             display: true,
-            text: 'Fund SIP Allocation'
+            text: 'Fund SIP Share'
           }
         }
       },
