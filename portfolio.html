@@ -1677,6 +1677,7 @@ function calculateTimelineStats(allTransactions, fundsList) {
   let idx = 0
   for (let date = new Date(startDate); date <= new Date(endDate); date.setDate(date.getDate() + 1)) {
     const dateStr = dateToStr(date)
+    const cashflows = []
     // for each day, calculate invested amount and market value up to that day
     while (idx < allTransactions.length && new Date(allTransactions[idx].date) <= date) {
       const txn = allTransactions[idx]
@@ -1728,26 +1729,25 @@ function calculateTimelineStats(allTransactions, fundsList) {
           // totalRealizedGain += (saleValue - purchaseCost);
         }
       }
+
+
+      // // #region XIRR
+      // let cashflowAmount = txn.amount;
+      // if (txn.type === 'PURCHASE' || txn.type === 'SIP') {
+      //   cashflowAmount = -Math.abs(cashflowAmount);
+      // } else if (txn.type === 'REDEMPTION' || txn.type === 'DIVIDEND') {
+      //   cashflowAmount = Math.abs(cashflowAmount);
+      // } else if (txn.type === 'REVERSAL') {
+      //   cashflowAmount = Math.abs(cashflowAmount);
+      // } else {
+      //   cashflowAmount = -cashflowAmount
+      // }
+      // cashflows.push({ date: txn.date, amount: cashflowAmount });
+      // // #endregion XIRR
+
       idx++
     } // while(txn < date)
 
-
-    // let currentValue_ = 0
-    // Object.keys(currentHoldingsByFund).forEach(isin => {
-    //   const holdingUnits = currentHoldingsByFund[isin].reduce((acc, holding) => acc + holding.units, 0)
-    //   currentHoldingUnitsByFund[isin] = holdingUnits
-    // })
-    // Object.keys(currentHoldingsByFund).forEach(isin => {
-    //   // const nav = navMap[schemeCode][format(d, 'dd-MM-yyyy')]
-    //   const fund = fundsList.find(f => f.isin === isin)
-    //   const nav = fund.navHistory?.[dateStr]
-    //   if (nav) { // else it will have previous day's NAV
-    //     currentHoldingNavByFund[isin] = nav
-    //   }
-    // })
-    // Object.keys(currentHoldingUnitsByFund).forEach(isin => {
-    //   currentValue_ += currentHoldingNavByFund[isin] * currentHoldingUnitsByFund[isin]
-    // })
 
     let currentMarketValue = 0
     Object.keys(currentHoldingsByFund).forEach(isin => {
@@ -1760,8 +1760,10 @@ function calculateTimelineStats(allTransactions, fundsList) {
       currentMarketValue += currentHoldingNavByFund[isin] * currentHoldingUnitsByFund[isin]
     })
 
-    // TODO: xirr
-    const xirr = 0;
+    // // TODO: xirr
+    // cashflows.push({ date: new Date(dateStr), amount: currentMarketValue });
+    // const xirrValue = calculateXirr(cashflows);
+    // const xirr = xirrValue * 100;
 
     allDatesList.push({
       date: dateStr,
@@ -1769,7 +1771,7 @@ function calculateTimelineStats(allTransactions, fundsList) {
       currentMarketValue,
       currentPnL: currentMarketValue - currentInvested,
       currentPnLPerc: (currentMarketValue - currentInvested) / currentInvested * 100,
-      xirr,
+      // xirr,
     });
   } // for (date)
 
@@ -2639,6 +2641,13 @@ function Dashboard({ casData, onReset }) {
         borderWidth: 1,
         borderColor: '#22ff88',
       },
+      // {
+      //   label: 'XIRR',
+      //   data: stats.perfChartStats.map(d => formatNumber(d.xirr, 2)),
+      //   pointRadius: 0,
+      //   borderWidth: 1,
+      //   borderColor: '#22ff88',
+      // },
     ]
     const perfChart = new Chart(document.getElementById('perf-chart'), {
       type: 'line',
