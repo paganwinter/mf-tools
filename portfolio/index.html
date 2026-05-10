@@ -7,13 +7,13 @@
 <!-- <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script> -->
 <!-- <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script> -->
 <!-- <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script> -->
-<script crossorigin src="js/react.development-18.3.1.js"></script>
-<script crossorigin src="js/react-dom.development-18.3.1.js"></script>
-<script src="js/babel.min.js"></script>
+<script crossorigin src="../js/react.development-18.3.1.js"></script>
+<script crossorigin src="../js/react-dom.development-18.3.1.js"></script>
+<script crossorigin src="../js/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0"></script>
 <style>
 * {
   margin: 0;
@@ -497,7 +497,7 @@ body {
 </script>
 -->
 <script type="text/babel">
-const MFAPI = 'https://api.mfapi.in';
+const MF_API_URL = 'https://api.mfapi.in';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 const { useState, useEffect, useCallback } = React;
@@ -917,8 +917,8 @@ function parseCAMSFromLines(lines, pageCount) {
   let investorName = '';
   let pan = '';
   const funds = [];
-  const folios = [];
-  const pans = {};
+  const folios = []; // mine
+  const pans = {}; // mine
   let currentFund = null;
   let currentAmc = '';
   let currentFolio = '';
@@ -969,8 +969,8 @@ function parseCAMSFromLines(lines, pageCount) {
     if (folio) {
       currentFolio = folio[1].replace(/\s+/g, '').trim();
       currentFund = {
-        pan,
-        folioNumber: currentFolio,
+        pan, // mine
+        folioNumber: currentFolio, // mine
         amc: currentAmc,
         schemeName: '',
         isin: '',
@@ -984,7 +984,7 @@ function parseCAMSFromLines(lines, pageCount) {
         casNavDate: null,
       };
       funds.push(currentFund);
-      folios.push(currentFund);
+      folios.push(currentFund); // mine
 
       // Investor name: scan the next few lines for a simple capitalized name
       if (!investorName) {
@@ -1048,8 +1048,6 @@ function parseCAMSFromLines(lines, pageCount) {
       if (t) {
         const type = classifyTxn(t.desc);
         currentFund.transactions.push({
-          // pan,
-          // folio: currentFolio,
           date: parseCasDate(t.date),
           description: t.desc,
           type,
@@ -1217,8 +1215,8 @@ function parseCAMSFromLines(lines, pageCount) {
     warnings,
     parseMetadata,
     rawLines: lines,  // for diagnostic export (sanitized before persistence)
-    pans,
-    folios,
+    pans, // mine
+    folios, // mine
   };
 }
 async function parseCAS(file, password) {
@@ -1692,6 +1690,8 @@ function calculateStats(folios, fundsList) {
 // }
 
 function calculateTimelineStats(allTransactions, fundsList) {
+  if (allTransactions.length < 1) return []
+
   const startDate = allTransactions[0].date
   const endDate = dateToStr(new Date())
 
@@ -1809,20 +1809,27 @@ function calculateTimelineStats(allTransactions, fundsList) {
     });
   } // for (date)
 
-  console.log('allDatesList:', allDatesList)
+  // console.log('allDatesList:', allDatesList)
 
   return allDatesList;
 }
 
-function calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCategories, selectedFunds }) {
+function calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCategories, selectedFunds, fundActive, fundInactive }) {
+  console.log('filters:', {selectedPANs, selectedCategories, selectedFunds, fundActive, fundInactive})
   let selectedFolios = casData.folios
-  console.log({selectedPANs, selectedCategories, selectedFunds})
   if (selectedPANs.length > 0) selectedFolios = selectedFolios.filter(folio => selectedPANs.includes(folio.pan))
   if (selectedCategories.length > 0) selectedFolios = selectedFolios.filter(folio => {
     const folioFund = fundsList.find(f => f.isin === folio.isin)
     return selectedCategories.includes(folioFund.category)
   })
   if (selectedFunds.length > 0) selectedFolios = selectedFolios.filter(folio => selectedFunds.includes(folio.isin))
+
+  if (fundActive && !fundInactive) {
+    selectedFolios = selectedFolios.filter(folio => folio.closingBalance > 0)
+  }
+  if (!fundActive && fundInactive) {
+    selectedFolios = selectedFolios.filter(folio => folio.closingBalance === 0)
+  }
   // console.log('selectedFolios:', selectedFolios)
 
   // calculateExp(selectedFolios, fundsList)
@@ -1840,7 +1847,7 @@ function calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCat
     })
   })
   allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date))
-  console.log('allTransactions:', allTransactions)
+  // console.log('allTransactions:', allTransactions)
   const perfChartStats = calculateTimelineStats(allTransactions, fundsList)
   // const perfChartStats = calculateTimelineStats(selectedFolios.slice(0, 3), fundsList)
   // const perfChartStats = calculateTimelineStats(casData.folios.filter(f => f.folioNumber === '91081111511/0'), fundsList) // Axis Mid Cap
@@ -2123,7 +2130,7 @@ function FundSelector({ funds, selectedFunds, onSelectionChange }) {
   );
 }
 
-function UploadSection({ onUploadComplete }) {
+function UploadSection({ handlePdfUpload }) {
   const [file, setFile] = useState(null);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -2147,22 +2154,8 @@ function UploadSection({ onUploadComplete }) {
 
     setLoading(true);
     setError(null);
-    onUploadComplete(file, password);
+    handlePdfUpload(file, password);
     setLoading(false);
-    // handle parsing in main App
-    // try {
-    //   // const arrayBuffer = await file.arrayBuffer();
-    //   const parsedData = await parseCAS(file, password || undefined);
-    //   console.log({parsedData})
-    //   await saveData('casData', parsedData);
-    //   // TODO: add AMFI code to funds
-    //   onUploadComplete(parsedData);
-    // } catch (err) {
-    //   console.error(err)
-    //   setError('Failed to parse CAS file: ' + err.message + ' ' + err.stack);
-    // } finally {
-    //   setLoading(false);
-    // }
   };
 
   return (
@@ -2190,7 +2183,7 @@ function UploadSection({ onUploadComplete }) {
           <input
             type="password"
             className="password-input"
-            placeholder="Password (PAN + DOB: ABCDE1234F01011990)"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -2201,7 +2194,7 @@ function UploadSection({ onUploadComplete }) {
               onClick={handleUpload}
               disabled={loading}
             >
-              {loading ? 'Processing...' : 'Upload & Parse'}
+              {loading ? 'Processing...' : 'Import'}
             </button>
           </div>
         </div>
@@ -2517,136 +2510,165 @@ function FundCard({ fund }) {
   </>)
 }
 
-function Dashboard({ casData, onReset }) {
+
+async function getUpdatedFundsList(fundsList = []) {
+  console.log('Updating funds list...')
+  try {
+    console.log('Loading funds details from mfapi.in')
+    const mfRes = await fetch(`${MF_API_URL}/mf`).then(r => r.json())
+    const mfApiFunds = mfRes.map(f => {
+      return { ...f, isin: f.isinGrowth || f.isinDivReinvestment || null }
+    }).filter(f => f.isin)
+    console.log('mfApiFunds:', mfApiFunds)
+
+    const updatedFundsList = await Promise.all(fundsList.map(async (fund) => {
+      const mfApiFund = mfApiFunds.find(f => f.isin === fund.isin)
+      if (!mfApiFund) return fund
+
+      const amfiCode = mfApiFund.schemeCode
+      const navRes = await fetch(`${MF_API_URL}/mf/${amfiCode}`).then(r => r.json())
+      const categoryFull = navRes.meta.scheme_category;
+      const category = (categoryFull.split(' - ')[1] ?? categoryFull.split(' - ')[0]).replace(' Fund', '')
+      fund = {
+        ...fund,
+        // mfApiSchemeName: mfApiFund.schemeName,
+        amfiCode,
+        category,
+        nav: parseFloat(navRes.data[0].nav),
+        navDate: navRes.data[0].date.split('-').reverse().join('-'),
+        prevNav: parseFloat(navRes.data[1].nav),
+        prevNavDate: navRes.data[1].date.split('-').reverse().join('-'),
+        navHistory: navRes.data.reduce((acc, n) => {
+          acc[n.date.split('-').reverse().join('-')] = parseFloat(n.nav);
+          return acc;
+        }, {}),
+      };
+      return fund;
+    }))
+    console.log('Updated funds list')
+    return updatedFundsList
+  } catch (err) {
+    console.error(err)
+    console.error('Error updating funds list using mfapi.in; using data from CAS');
+    return fundsList
+  }
+}
+
+
+function Dashboard({ casData, handleReset }) {
+  // const [fundsList, setFundsList] = useState(casData.funds.map(f => {
+  //   const { amc, isin, schemeName, casNav: navCas, casNavDate: navDateCas } = f;
+  //   return { amc, isin, schemeName, navCas, navDateCas }
+  // }));
+  const [fundsList, setFundsList] = useState([...casData.fundsList]);
+
+  const [fundActive, setFundActive] = useState(true);
+  const [fundInactive, setFundInactive] = useState(false);
   const [selectedPANs, setSelectedPANs] = useState(Object.keys(casData.pans));
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [selectedFunds, setSelectedFunds] = useState([]);
+  const [selectedFunds, setSelectedFunds] = useState(casData.fundsList.map(f => f.isin));
   const [stats, setStats] = useState(null);
   const [sortBy, setSortBy] = useState('marketValue');
   const [sortDirection, setSortDirection] = useState('desc');
-  const [fundsList, setFundsList] = useState(casData.funds.map(f => {
-    const { amc, isin, schemeName, casNav: navCas, casNavDate: navDateCas } = f;
-    return { amc, isin, schemeName, navCas, navDateCas }
-  }));
   const [refreshingNav, setRefreshingNav] = useState(false);
 
   console.log('')
   console.log('Dashboard')
-  console.log('casData:', casData)
+  console.log({casData, fundsList, stats})
 
-  const MF_API_URL = 'https://api.mfapi.in';
 
-  async function refreshNavs() {
+  // async function refreshNavs() {
+  //   setRefreshingNav(true);
+  //   try {
+  //     const updatedFundsList = await Promise.all(fundsList.map(async (fund) => {
+  //       let fundDetails = { ...fund }
+  //       if (!fund.amfiCode) {
+  //         return fundDetails
+  //       }
+
+  //       try {
+  //         // const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}/latest`).then(r => r.json())
+  //         const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}`).then(r => r.json())
+  //         // console.log(' Latest NAV for '+fund.schemeName, navRes.data[0])
+  //         return {
+  //           ...fundDetails,
+  //           nav: parseFloat(navRes.data[0].nav),
+  //           navDate: navRes.data[0].date.split('-').reverse().join('-'),
+  //           prevNav: parseFloat(navRes.data[1].nav),
+  //           prevNavDate: navRes.data[1].date.split('-').reverse().join('-'),
+  //           navHistory: navRes.data.reduce((acc, n) => {
+  //             acc[n.date.split('-').reverse().join('-')] = parseFloat(n.nav);
+  //             return acc;
+  //           }, {}),
+  //         }
+  //       } catch (err) {
+  //         console.error('Failed to fetch NAV for', fund.schemeName, err)
+  //         return fundDetails
+  //       }
+  //     }))
+  //     console.log('All NAVs refreshed:', updatedFundsList)
+  //     setFundsList(updatedFundsList);
+  //   } catch (err) {
+  //     console.error('Error refreshing NAVs:', err)
+  //   } finally {
+  //     setRefreshingNav(false);
+  //   }
+  // }
+
+  async function refreshFundsList() {
+    console.log('Refreshing funds list...')
     setRefreshingNav(true);
-    try {
-      const updatedFundsList = await Promise.all(fundsList.map(async (fund) => {
-        let fundDetails = { ...fund }
-        if (!fund.amfiCode) {
-          return fundDetails
-        }
-
-        try {
-          // const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}/latest`).then(r => r.json())
-          const navRes = await fetch(`${MF_API_URL}/mf/${fund.amfiCode}`).then(r => r.json())
-          // console.log(' Latest NAV for '+fund.schemeName, navRes.data[0])
-          return {
-            ...fundDetails,
-            nav: parseFloat(navRes.data[0].nav),
-            navDate: navRes.data[0].date.split('-').reverse().join('-'),
-            prevNav: parseFloat(navRes.data[1].nav),
-            prevNavDate: navRes.data[1].date.split('-').reverse().join('-'),
-            navHistory: navRes.data.reduce((acc, n) => {
-              acc[n.date.split('-').reverse().join('-')] = parseFloat(n.nav);
-              return acc;
-            }, {}),
-          }
-        } catch (err) {
-          console.error('Failed to fetch NAV for', fund.schemeName, err)
-          return fundDetails
-        }
-      }))
-      console.log('All NAVs refreshed:', updatedFundsList)
-      setFundsList(updatedFundsList);
-    } catch (err) {
-      console.error('Error refreshing NAVs:', err)
-    } finally {
-      setRefreshingNav(false);
-    }
+    const updatedFundsList = await getUpdatedFundsList(fundsList);
+    console.log('updatedFundsList', updatedFundsList)
+    await saveData('fundsList', updatedFundsList);
+    setFundsList(updatedFundsList);
+    setRefreshingNav(false);
   }
 
+  // update funds list
   useEffect(() => {
-    async function updateFundsList() {
-      console.log('Updating funds details from mfapi')
-      const mfApiRes = await fetch(`${MF_API_URL}/mf`).then(r => r.json())
-      const mfApiFundsList = mfApiRes.map(f => {
-        return {
-          schemeName: f.schemeName,
-          schemeCode: f.schemeCode,
-          isin: f.isinGrowth || f.isinDivReinvestment || null,
-        }
-      }).filter(f => f.isin)
-      console.log({mfApiFundsList})
-
-      const updatedFundsList = await Promise.all(fundsList.map(async (fund) => {
-        let fundDetails = { ...fund }
-
-        const mfApiFund = mfApiFundsList.find(f => f.isin === fund.isin)
-        if (!mfApiFund) return fundDetails
-
-        const amfiCode = mfApiFund.schemeCode
-        const mfApiSchemeName = mfApiFund.schemeName
-        // const navRes = await fetch(`${MF_API_URL}/mf/${amfiCode}/latest`).then(r => r.json())
-        const navRes = await fetch(`${MF_API_URL}/mf/${amfiCode}`).then(r => r.json())
-        const category = (navRes.meta.scheme_category.split(' - ')[1] ?? navRes.meta.scheme_category.split(' - ')[0]).replace(' Fund', '')
-        fundDetails = {
-          ...fundDetails,
-          mfApiSchemeName,
-          amfiCode,
-          category,
-          nav: parseFloat(navRes.data[0].nav),
-          navDate: navRes.data[0].date.split('-').reverse().join('-'),
-          prevNav: parseFloat(navRes.data[1].nav),
-          prevNavDate: navRes.data[1].date.split('-').reverse().join('-'),
-          navHistory: navRes.data.reduce((acc, n) => {
-            acc[n.date.split('-').reverse().join('-')] = parseFloat(n.nav);
-            return acc;
-          }, {}),
-        };
-        return fundDetails;
-      }))
-      // console.log('fundsList:', updatedFundsList)
-      setFundsList(updatedFundsList);
+    async function update() {
+      const fundsListData = await loadData('fundsList').catch(err => {
+        console.error('Failed to load fundsList from DB:', err);
+        return null;
+      })
+      if (fundsListData) {
+        console.log('Using stored funds data')
+        setFundsList(fundsListData);
+      } else {
+        refreshFundsList()
+      }
     }
-    updateFundsList()
-  }, [casData]);
+    update()
+  }, []);// [casData]);
 
-  // Initialize category and ISIN filters when fundsList is loaded
+
+  // Initialize category filter when fundsList is updated
   useEffect(() => {
-    if (fundsList.length > 0) {
+    if (fundsList && fundsList.length > 0) {
       const uniqueCategories = [...new Set(fundsList.map(f => f.category).filter(Boolean))];
       if (selectedCategories.length === 0) {
         setSelectedCategories(uniqueCategories);
       }
-      if (selectedFunds.length === 0) {
-        setSelectedFunds(fundsList.map(f => f.isin));
-      }
     }
   }, [fundsList]);
 
+
+  // update stats
   useEffect(() => {
     async function updateStats() {
       if (selectedPANs.length > 0) {
         // const fundsMaster = await loadData('fundsMaster');
-        const calculatedStats = calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCategories, selectedFunds });
-        // console.log('stats:', calculatedStats)
+        const calculatedStats = calculatePortfolioStats({ casData, fundsList, selectedPANs, selectedCategories, selectedFunds, fundActive, fundInactive });
         setStats(calculatedStats);
       } else {
         setStats(null);
       }
     }
     updateStats()
-  }, [casData, fundsList, selectedPANs, selectedCategories, selectedFunds]);
+  }, [casData, fundsList, selectedPANs, selectedCategories, selectedFunds, fundActive, fundInactive]);
 
+  // update graphs
   useEffect(() => {
     if (!stats?.perfChartStats) return
     const chartLabels = stats.perfChartStats.map(d => formatDate(d.date))
@@ -2694,12 +2716,6 @@ function Dashboard({ casData, onReset }) {
         yAxisID: 'y2',
       },
     ]
-
-    console.log('>>>', stats.perfChartStats)
-    console.log('>>>', stats.perfChartStats.map(d => d.xirr).filter(x => x !== null))
-    // stats.perfChartStats.forEach(i => {
-    //   if (i.xirr) console.log(i.date, i.xirr)
-    // })
 
     const perfChart = new Chart(document.getElementById('perf-chart'), {
       type: 'line',
@@ -2784,16 +2800,6 @@ function Dashboard({ casData, onReset }) {
     });
 
 
-    // {stats.categories
-    //   .sort((a, b) => b.stats.allocationPercentage - a.stats.allocationPercentage)
-    //   .map((category, i) => (
-    //     <tr key={i} style={{ fontSize: 12, color: 'var(--gray-900)', borderBottom: '1px solid #eee' }}>
-    //       <td style={{ textAlign: 'left' }}>{category.category}</td>
-    //       <td style={{ textAlign: 'right' }}>{category.stats.allocationPercentage ? formatPercentage(category.stats.allocationPercentage, 0) : ''}</td>
-    //       <td style={{ textAlign: 'right' }}>{formatCurrency(category.stats.marketValue/100000, 2)} L</td>
-    //       <td style={{ textAlign: 'right' }}>{formatPercentage(category.stats.xirr, 2)}</td>
-    //     </tr>
-    // ))}
     const sortedCategories = stats.categories.sort((a, b) => b.stats.allocationPercentage - a.stats.allocationPercentage)
     const categoryChart = new Chart(document.getElementById('category-chart'), {
       type: 'pie',
@@ -2884,8 +2890,7 @@ function Dashboard({ casData, onReset }) {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
-  console.log('fundsList:', fundsList)
-  console.log('stats:', stats)
+
   const sortedFundsStats = stats?.funds ? [...stats.funds].sort((a, b) => {
     let aVal, bVal;
     
@@ -2931,14 +2936,13 @@ function Dashboard({ casData, onReset }) {
   }) : [];
   console.log('sortedFundsStats:', sortedFundsStats)
 
-
   return (
     <>
       <div className="controls" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', padding: 10 }}>
-        <button className="btn btn-primary" onClick={refreshNavs} disabled={refreshingNav || fundsList.length === 0}>
+        <button className="btn btn-primary" onClick={refreshFundsList} disabled={refreshingNav || fundsList.length === 0}>
           {refreshingNav ? 'Refreshing NAV...' : 'Refresh'}
         </button>
-        <button className="btn btn-danger" onClick={onReset}>Clear Data</button>
+        <button className="btn btn-danger" onClick={handleReset}>Clear Data</button>
       </div>
 
       <div className="perf-chart-container" style={{ position: 'relative', height: '300px' }}>
@@ -2953,6 +2957,25 @@ function Dashboard({ casData, onReset }) {
             <p>Please select at least one PAN account to view your portfolio</p>
           </div>
         )}
+      </div>
+
+      <div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={fundActive}
+            onChange={() => { setFundActive(!fundActive) }}
+          />
+          <span>Active</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={fundInactive}
+            onChange={() => { setFundInactive(!fundInactive) }}
+          />
+          <span>Inactive</span>
+        </label>
       </div>
 
       <div className="category-selector" style={{ marginTop: 20 }}>
@@ -3093,30 +3116,44 @@ function Dashboard({ casData, onReset }) {
   )
 }
 
+
 function App() {
   const [casData, setCasData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadData('casData')
-      .then(data => {
-        if (data) {
-          setCasData(data);
-        }
-      })
+      .then(data => { if (data) { setCasData(data); } })
       .catch(err => console.error('Failed to load data:', err))
       .finally(() => setLoading(false));
   }, []);
 
-
-  const handleUploadComplete = async (file, password) => {
+  const handlePdfUpload = async (file, password) => {
     try {
-      // const arrayBuffer = await file.arrayBuffer();
-      const parsedData = await parseCAS(file, password || undefined);
-      console.log('parsedData:', parsedData)
-      await saveData('casData', parsedData);
-      // onUploadComplete(parsedData);
-      setCasData(parsedData);
+      const parsedCAS = await parseCAS(file, password || undefined);
+      console.log('parsedCAS:', parsedCAS);
+      // const fundsList = await updateFundsList(parsedCAS);
+      let fundsList = parsedCAS.funds.map(f => {
+        const { amc, isin, schemeName, casNav: navCas, casNavDate: navDateCas } = f;
+        return {
+          amc,
+          isin,
+          schemeName,
+          navCas,
+          navDateCas,
+          // category: 'UNKNOWN',
+          // amfiCode: null,
+          // navHistory: null,
+        }
+      })
+      const processedCAS = {
+        ...parsedCAS,
+        fundsList,
+      }
+      console.log('processedCAS:', processedCAS);
+      await saveData('casData', processedCAS);
+      setCasData(processedCAS);
     } catch (err) {
       console.error(err)
       setError('Failed to parse CAS file: ' + err.message + ' ' + err.stack);
@@ -3125,7 +3162,6 @@ function App() {
     }
   };
 
-
   const handleReset = async () => {
     if (confirm('Are you sure you want to clear all data?')) {
       await clearAllData();
@@ -3133,7 +3169,9 @@ function App() {
     }
   };
 
-  if (new URLSearchParams(window.location.search).has('reset') && casData) handleReset()
+  if (new URLSearchParams(window.location.search).has('reset') && casData) {
+    handleReset();
+  }
 
   if (loading) {
     return (
@@ -3148,9 +3186,10 @@ function App() {
 
   return (
     <div className="app">
+      {error && <div>{error.message}</div>}
       {!casData
-        ? (<UploadSection onUploadComplete={handleUploadComplete} />)
-        : (<Dashboard casData={casData} onReset={handleReset} />)
+        ? (<UploadSection handlePdfUpload={handlePdfUpload} />)
+        : (<Dashboard casData={casData} handleReset={handleReset} />)
       }
     </div>
   );
