@@ -1455,6 +1455,9 @@ function calculateStats(folios, fundsList) {
   const invested = costValue
   const marketValueCas = folios.reduce((acc, item) => acc += item.marketValue, 0)
 
+  let realisedGains = 0 // TODO
+  let unrealisedGains = 0 // TODO
+
   let marketValue = 0
   let marketValuePrev = 0
   let cashflows = []
@@ -1795,11 +1798,16 @@ function calculateTimelineStats(allTransactions, fundsList) {
   const currentHoldingNavByFund = {};
 
   const allDatesList = [];
-  let currentInvested = 0;
-  let idx = 0
   const cashflows = []
+  let currentInvested = 0;
+  let currentRealisedGains = 0;
+
+  let idx = 0
   for (let date = new Date(startDate); date <= new Date(endDate); date.setDate(date.getDate() + 1)) {
     const dateStr = dateToStr(date)
+
+    let dailyInvested = 0;
+    let dailyRealisedGain = 0;
 
     // for each day, calculate invested amount and market value up to that day
     while (idx < allTransactions.length && new Date(allTransactions[idx].date) <= date) {
@@ -1814,7 +1822,8 @@ function calculateTimelineStats(allTransactions, fundsList) {
             units: txn.units,
             date: txn.date,
           }]
-          currentInvested += txn.amount; // txn.nav * txn.units;
+          // currentInvested += txn.amount; // txn.nav * txn.units;
+          dailyInvested += txn.amount; // txn.nav * txn.units;
         } else if (txnType(txn.type) === 'sell') {
         }
       } else {
@@ -1824,32 +1833,36 @@ function calculateTimelineStats(allTransactions, fundsList) {
             units: txn.units,
             nav: txn.nav,
           })
-          currentInvested += txn.amount; // txn.nav * txn.units
+          // currentInvested += txn.amount;
+          dailyInvested += txn.amount; // txn.nav * txn.units
         } else if (txnType(txn.type) === 'sell') {
           // deduct the purchase amount of the sold units from current invested
           // and reduce the units balance from current holdings using FIFO method
           let unitsToSell = -txn.units;
-          // let saleValue = -txn.amount;
-          // let purchaseCost = 0; // cost of units being sold
+          let saleValue = -txn.amount;
+          let purchaseCost = 0; // cost of units being sold
           while (unitsToSell > 0 && currentHoldingsByFund[isin].find(l => l.units > 0)) {
             const lot = currentHoldingsByFund[isin].find(l => l.units > 0) // oldest holding/lot with non-zero units balance
             if (lot.units <= unitsToSell) {
               // if oldest lot has fewer or equal units than we need to sell, sell the entire lot and move on to the next lot to sell rest of the units
-              // purchaseCost += lot.units * lot.nav;
+              purchaseCost += lot.units * lot.nav;
               unitsToSell -= lot.units;
               const purchaseCostOfSoldUnits = lot.units * lot.nav;
-              currentInvested -= purchaseCostOfSoldUnits;
+              // currentInvested -= purchaseCostOfSoldUnits;
+              dailyInvested -= purchaseCostOfSoldUnits;
               lot.units = 0;
             } else {
               // if oldest lot has more units than we need to sell, sell only the required units and reduce the lot units balance
-              // purchaseCost += unitsToSell * lot.nav;
+              purchaseCost += unitsToSell * lot.nav;
               const purchaseCostOfSoldUnits = unitsToSell * lot.nav;
-              currentInvested -= purchaseCostOfSoldUnits;
+              // currentInvested -= purchaseCostOfSoldUnits;
+              dailyInvested -= purchaseCostOfSoldUnits;
               lot.units -= unitsToSell;
               unitsToSell = 0;
             }
           }
           // totalRealizedGain += (saleValue - purchaseCost);
+          dailyRealisedGain += (saleValue - purchaseCost);
         }
       }
 
@@ -1871,6 +1884,11 @@ function calculateTimelineStats(allTransactions, fundsList) {
 
       idx++
     } // while(txn < date)
+
+    currentInvested += dailyInvested
+    // if (formatNumber(currentInvestedTest) !== formatNumber(currentInvested)) console.log(dateStr, currentInvested, currentInvestedTest)
+
+    currentRealisedGains += dailyRealisedGain
 
 
     let currentMarketValue = 0
@@ -1901,6 +1919,7 @@ function calculateTimelineStats(allTransactions, fundsList) {
       cashflows,
       xirrValue,
       xirr: xirrPercentage,
+      currentRealisedGains,
     });
   } // for (date)
 
@@ -2807,6 +2826,7 @@ function Dashboard({ casData, handleReset }) {
     }
     updateStats()
   }, [casData, fundsData, selectedPANs, selectedCategories, selectedFunds, fundActive, fundInactive]);
+
   // update graphs
   useEffect(() => {
     if (!stats?.perfChartStats) return
@@ -2834,7 +2854,7 @@ function Dashboard({ casData, handleReset }) {
         data: stats.perfChartStats.map(d => formatNumber(d.currentPnL, 0)),
         pointRadius: 0,
         borderWidth: 1,
-        borderColor: '#22ff88',
+        borderColor: '#00dd66',
         yAxisID: 'y',
       },
       {
@@ -2842,7 +2862,7 @@ function Dashboard({ casData, handleReset }) {
         data: stats.perfChartStats.map(d => formatNumber(d.currentPnLPerc, 2)),
         pointRadius: 0,
         borderWidth: 1,
-        borderColor: '#22ff88',
+        borderColor: '#006622',
         yAxisID: 'y2',
       },
       {
@@ -2851,8 +2871,18 @@ function Dashboard({ casData, handleReset }) {
         data: stats.perfChartStats.map(d => formatNumber(d.xirr, 2)),
         pointRadius: 0,
         borderWidth: 1,
-        borderColor: '#444444',
+        borderColor: '#00bb66',
         yAxisID: 'y2',
+      },
+      {
+        label: 'currentRealisedGains',
+        // type: 'bar',
+        data: stats.perfChartStats.map(d => formatNumber(d.currentRealisedGains, 2)),
+        pointRadius: 0,
+        borderWidth: 1,
+        borderColor: '#000',
+        yAxisID: 'y',
+        hidden: true,
       },
     ]
 
