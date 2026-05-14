@@ -1262,14 +1262,14 @@ async function parseCAS(file, password) {
 // #endregion CAS Parser
 
 // #region AMFI
-function parseCategory(amfiCat) {
-  let [, type, category] = amfiCat.match(/(.+?)\((.+)\)/)
-  // let [scheme, category] = schemeCategory.split(' - ')
-  // if (!category) category = scheme
-  let [scheme] = category.split(' - ')
-  return { type, scheme, category }
-}
 function parseAMFIData(data) {
+  function parseCategory(amfiCat) {
+    let [, type, category] = amfiCat.match(/(.+?)\((.+)\)/)
+    // let [scheme, category] = schemeCategory.split(' - ')
+    // if (!category) category = scheme
+    let [scheme] = category.split(' - ')
+    return { type, scheme, category }
+  }
   data = data.replace(/\r?\n/g, '\n')
   let lines = data.split(/\n/)
 
@@ -2789,6 +2789,7 @@ function Dashboard({ casData, handleReset }) {
           }
           console.log('updatedFundsData:', updatedFundsData)
           setFundsData(updatedFundsData);
+          setFundCategories(Array.from(new Set(updatedFundsData.funds.map(f => f.category).filter(Boolean))));
           await saveData('fundsData', updatedFundsData); // TODO
           // refreshNAVs()
         } catch (err) {
