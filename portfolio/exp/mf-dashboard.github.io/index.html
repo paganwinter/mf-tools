@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My MF Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+    <link rel="stylesheet" href="styles.css?v=20260114" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+      referrerpolicy="no-referrer"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      href="/img/favicon-96x96.png"
+      sizes="96x96"
+    />
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg" />
+    <link rel="shortcut icon" href="/img/favicon.ico" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/img/apple-touch-icon.png"
+    />
+
+    <meta name="theme-color" content="#181b2f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MYMF" />
+    <link rel="manifest" href="/manifest.json?v=20260114" />
+    <link rel="apple-touch-startup-image" href="/img/apple-touch-icon.png" />
+  </head>
+  <body>
+    <div class="loader hidden">
+      <div class="loader-con">
+        <div style="--i: 0" class="pfile"></div>
+        <div style="--i: 1" class="pfile"></div>
+        <div class="pfile" style="--i: 2"></div>
+        <div style="--i: 3" class="pfile"></div>
+        <div style="--i: 4" class="pfile"></div>
+        <div style="--i: 5" class="pfile"></div>
+      </div>
+      <div class="loader-text">
+        <p>Working some data magic.</p>
+        &nbsp;
+        <p>Your dashboard will be ready in ~2 minutes!</p>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="dashboard" id="dashboard">
+        <div class="dashboard-tabs">
+          <div class="mobile-header">
+            <div>
+              <button
+                class="hamburger-menu"
+                name="hamburgerMenu"
+                title="Menu Options"
+                id="hamburgerMenu"
+                onclick="toggleMobileMenu()"
+              >
+                <span></span>
+                <span></span>
+                <span></span>
+              </button>
+              <h1 class="dashboard-title">My MF Dashboard</h1>
+            </div>
+            <div>
+              <button
+                class="theme-toggle"
+                onclick="toggleTheme()"
+                title="Toggle Dark Mode"
+              >
+                <i class="fa-solid fa-moon" id="themeIconMobile"></i>
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="mobile-menu-overlay"
+            id="mobileMenuOverlay"
+            onclick="closeMobileMenu()"
+          ></div>
+
+          <div class="mobile-menu" id="mobileMenu">
+            <div class="mobile-menu-header">
+              <h3>My MF Dashboard</h3>
+              <button class="mobile-menu-close" onclick="closeMobileMenu()">
+                ✕
+              </button>
+            </div>
+            <div class="mobile-menu-items">
+              <button
+                class="mobile-menu-item cas-upload-tab-button"
+                onclick="switchDashboardTab('cas-upload-tab'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-upload"></i>
+                <span>Manage CAS</span>
+              </button>
+              <button
+                class="mobile-menu-item additional-assets-button"
+                onclick="switchDashboardTab('additional-assets'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-piggy-bank"></i>
+                <span>Additional Assets</span>
+              </button>
+              <button
+                class="mobile-menu-item main-button active"
+                onclick="switchDashboardTab('main'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-house"></i>
+                <span>Dashboard</span>
+              </button>
+              <button
+                class="mobile-menu-item current-holding-button"
+                onclick="switchDashboardTab('current-holding'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-briefcase"></i>
+                <span>Current Holdings</span>
+              </button>
+              <button
+                class="mobile-menu-item past-holding-button"
+                id="show-past-mobile"
+                onclick="switchDashboardTab('past-holding'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Past Holdings</span>
+              </button>
+              <button
+                class="mobile-menu-item charts-button"
+                onclick="switchDashboardTab('charts'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Analysis</span>
+              </button>
+              <button
+                class="mobile-menu-item transactions-button"
+                onclick="switchDashboardTab('transactions'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-exchange-alt"></i>
+                <span>Transactions</span>
+              </button>
+              <button
+                class="mobile-menu-item capital-gains-button"
+                onclick="switchDashboardTab('capital-gains'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-coins"></i>
+                <span>Capital Gains</span>
+              </button>
+              <button
+                class="mobile-menu-item tax-planning-button"
+                onclick="switchDashboardTab('tax-planning'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Tax Planning</span>
+              </button>
+              <button
+                class="mobile-menu-item overlap-analysis-button"
+                onclick="switchDashboardTab('overlap-analysis')"
+              >
+                <i class="fa-solid fa-layer-group"></i>
+                <span>Overlap Analysis</span>
+              </button>
+              <button
+                class="mobile-menu-item expense-impact-button"
+                onclick="switchDashboardTab('expense-impact')"
+              >
+                <i class="fa-solid fa-receipt"></i>
+                <span>Expense Impact</span>
+              </button>
+              <button
+                class="mobile-menu-item health-score-button"
+                onclick="switchDashboardTab('health-score')"
+              >
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>Portfolio Health</span>
+              </button>
+              <button
+                class="mobile-menu-item family-dashboard-button"
+                onclick="switchDashboardTab('family-dashboard'); closeMobileMenu();"
+              >
+                <i class="fa-solid fa-users"></i>
+                <span>Family Dashboard</span>
+              </button>
+            </div>
+          </div>
+          <div class="tab-container">
+            <div>
+              <button
+                class="dashboard-tab-btn cas-upload-tab-button"
+                onclick="switchDashboardTab('cas-upload-tab')"
+              >
+                <i class="fa-solid fa-upload"></i>
+                <span>Manage CAS</span>
+              </button>
+              <button
+                class="dashboard-tab-btn additional-assets-button"
+                onclick="switchDashboardTab('additional-assets')"
+              >
+                <i class="fa-solid fa-piggy-bank"></i>
+                <span>Additional Assets</span>
+              </button>
+              <button
+                class="dashboard-tab-btn main-button active"
+                onclick="switchDashboardTab('main')"
+              >
+                <i class="fa-solid fa-house"></i>
+                <span>Dashboard</span>
+              </button>
+              <button
+                class="dashboard-tab-btn current-holding-button"
+                onclick="switchDashboardTab('current-holding')"
+              >
+                <i class="fa-solid fa-briefcase"></i>
+                <span>Current Holdings</span>
+              </button>
+              <button
+                class="dashboard-tab-btn past-holding-button"
+                id="show-past"
+                onclick="switchDashboardTab('past-holding')"
+              >
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Past Holdings</span>
+              </button>
+              <button
+                class="dashboard-tab-btn charts-button"
+                onclick="switchDashboardTab('charts')"
+              >
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Analysis</span>
+              </button>
+              <button
+                class="dashboard-tab-btn transactions-button"
+                onclick="switchDashboardTab('transactions')"
+              >
+                <i class="fa-solid fa-exchange-alt"></i>
+                <span>Transactions</span>
+              </button>
+              <button
+                class="dashboard-tab-btn capital-gains-button"
+                onclick="switchDashboardTab('capital-gains')"
+              >
+                <i class="fa-solid fa-coins"></i>
+                <span>Capital Gains</span>
+              </button>
+              <button
+                class="dashboard-tab-btn tax-planning-button"
+                onclick="switchDashboardTab('tax-planning')"
+              >
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Tax Planning</span>
+              </button>
+              <button
+                class="dashboard-tab-btn overlap-analysis-button"
+                onclick="switchDashboardTab('overlap-analysis')"
+              >
+                <i class="fa-solid fa-layer-group"></i>
+                <span>Overlap Analysis</span>
+              </button>
+              <button
+                class="dashboard-tab-btn expense-impact-button"
+                onclick="switchDashboardTab('expense-impact')"
+              >
+                <i class="fa-solid fa-receipt"></i>
+                <span>Expense Impact</span>
+              </button>
+              <button
+                class="dashboard-tab-btn health-score-button"
+                onclick="switchDashboardTab('health-score')"
+              >
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>Portfolio Health</span>
+              </button>
+              <button
+                class="dashboard-tab-btn family-dashboard-button"
+                onclick="switchDashboardTab('family-dashboard')"
+              >
+                <i class="fa-solid fa-users"></i>
+                <span>Family Dashboard</span>
+              </button>
+            </div>
+          </div>
+          <div class="theme-container">
+            <button
+              class="theme-toggle"
+              onclick="toggleTheme()"
+              title="Toggle Dark Mode"
+            >
+              <i class="fa-solid fa-moon" id="themeIconDesktop"></i>
+            </button>
+          </div>
+        </div>
+        <section id="cas-upload-tab">
+          <div class="upload-tab-content">
+            <div class="upload-card">
+              <div class="upload-icon">📄</div>
+              <h3>Upload New CAS</h3>
+              <p
+                id="currentUserDisplay"
+                class="hidden"
+                style="font-weight: 600; color: #667eea; margin-bottom: 10px"
+              ></p>
+              <p>Upload a fresh CAS to add/update an user and view dashboard</p>
+              <div class="file-input-container">
+                <input
+                  type="file"
+                  id="fileInputTab"
+                  placeholder="Select CAS"
+                  accept=".json,application/json,.pdf,application/pdf"
+                />
+                <input
+                  type="password"
+                  id="filePasswordTab"
+                  placeholder="Enter CAS password"
+                />
+                <button type="button" class="load" onclick="loadFileFromTab();">
+                  Load Portfolio
+                </button>
+              </div>
+            </div>
+            <div class="upload-card user-management-card">
+              <div class="upload-icon"><i class="fa-solid fa-users"></i></div>
+              <h3>Manage Users</h3>
+              <p>View and manage all user portfolios</p>
+              <div class="user-list-container" id="userListContainer"></div>
+              <button
+                type="button"
+                class="danger-btn"
+                onclick="deleteAllUsers()"
+                style="width: 100%; margin-top: 10px"
+              >
+                <i class="fa-solid fa-trash"></i>
+                Delete All Users
+              </button>
+            </div>
+            <div class="upload-card update-nav">
+              <div class="upload-icon">🔄</div>
+              <h3>Update NAV</h3>
+              <p>Fetch latest NAV (Net Asset Value) for all your funds</p>
+              <p class="update-info">
+                <small
+                  >Updates daily. Last updated:
+                  <span id="lastNavUpdateDate">--</span></small
+                >
+              </p>
+              <button
+                type="button"
+                class="primary-btn"
+                onclick="updateNavManually()"
+                style="width: 100%"
+              >
+                Update NAV
+              </button>
+            </div>
+
+            <div class="upload-card update-stats">
+              <div class="upload-icon">📊</div>
+              <h3>Update Fund Statistics</h3>
+              <p>
+                Fetch latest portfolio composition, returns, and ratings
+                (updates monthly after 10th)
+              </p>
+              <p class="update-info">
+                <small
+                  >Updates monthly. Last updated:
+                  <span id="lastStatsUpdateDate">--</span></small
+                >
+              </p>
+              <button
+                type="button"
+                class="primary-btn"
+                onclick="updateMFStats()"
+                style="width: 100%"
+              >
+                Update Stats
+              </button>
+            </div>
+            <div class="upload-card instructions-card">
+              <div class="upload-icon">📋</div>
+              <h3>How to Get Your CAS File</h3>
+              <div class="instructions-list">
+                <ol>
+                  <li>
+                    Visit
+                    <a
+                      href="https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement"
+                      target="_blank"
+                      rel="noopener"
+                      >CAMS Online</a
+                    >
+                    or use myCAMS mobile app
+                  </li>
+                  <li>Select <strong>"Detailed Statement"</strong> option</li>
+                  <li>
+                    Choose either <strong>"With Zero Balance"</strong> or
+                    <strong>"Without Zero Balance"</strong> (both work)
+                  </li>
+                  <li>
+                    Provide your <strong>email address</strong> and set a
+                    <strong>password</strong> for the CAS file
+                  </li>
+                  <li>
+                    You'll receive the CAS PDF via email within a few minutes
+                  </li>
+                  <li>
+                    Upload the PDF here and enter the same password you set
+                    during generation
+                  </li>
+                </ol>
+              </div>
+              <p class="instructions-note">
+                Currently supports CAMS CAS files.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section id="additional-assets">
+          <div class="additional-assets-container">
+            <div class="section-header">
+              <h3>💰 Additional Assets</h3>
+              <p class="section-subtitle">
+                Manually track your non-MF investments
+              </p>
+            </div>
+
+            <div class="assets-grid">
+              <!-- Gold Card -->
+              <div class="asset-card">
+                <div class="asset-header">
+                  <div
+                    class="asset-icon"
+                    style="
+                      background: linear-gradient(
+                        135deg,
+                        #ffd700 0%,
+                        #ffa500 100%
+                      );
+                    "
+                  >
+                    <i class="fa-solid fa-coins"></i>
+                  </div>
+                  <h4>Gold</h4>
+                </div>
+                <div class="asset-input-group">
+                  <label>Quantity</label>
+                  <input
+                    type="number"
+                    id="goldQuantity"
+                    placeholder="0"
+                    step="0.01"
+                    onchange="saveAdditionalAssets()"
+                  />
+                </div>
+                <div class="asset-input-group">
+                  <label>Current Rate (₹/qty)</label>
+                  <input
+                    type="number"
+                    id="goldRate"
+                    placeholder="0"
+                    step="1"
+                    onchange="saveAdditionalAssets()"
+                  />
+                </div>
+                <div class="asset-value">
+                  <span>Total Value:</span>
+                  <strong id="goldValue">₹0</strong>
+                </div>
+              </div>
+
+              <!-- Silver Card -->
+              <div class="asset-card">
+                <div class="asset-header">
+                  <div
+                    class="asset-icon"
+                    style="
+                      background: linear-gradient(
+                        135deg,
+                        #c0c0c0 0%,
+                        #a8a8a8 100%
+                      );
+                    "
+                  >
+                    <i class="fa-solid fa-gem"></i>
+                  </div>
+                  <h4>Silver</h4>
+                </div>
+                <div class="asset-input-group">
+                  <label>Quantity</label>
+                  <input
+                    type="number"
+                    id="silverQuantity"
+                    placeholder="0"
+                    step="0.01"
+                    onchange="saveAdditionalAssets()"
+                  />
+                </div>
+                <div class="asset-input-group">
+                  <label>Current Rate (₹/qty)</label>
+                  <input
+                    type="number"
+                    id="silverRate"
+                    placeholder="0"
+                    step="0.1"
+                    onchange="saveAdditionalAssets()"
+                  />
+                </div>
+                <div class="asset-value">
+                  <span>Total Value:</span>
+                  <strong id="silverValue">₹0</strong>
+                </div>
+              </div>
+
+              <!-- Cash Card -->
+              <div class="asset-card">
+                <div class="asset-header">
+                  <div
+                    class="asset-icon"
+                    style="
+                      background: linear-gradient(
+                        135deg,
+                        #10b981 0%,
+                        #059669 100%
+                      );
+                    "
+                  >
+                    <i class="fa-solid fa-money-bill-wave"></i>
+                  </div>
+                  <h4>Cash & Equivalents</h4>
+                </div>
+                <div class="asset-input-group">
+                  <label>Amount</label>
+                  <input
+                    type="number"
+                    id="cashAmount"
+                    placeholder="0"
+                    step="1"
+                    onchange="saveAdditionalAssets()"
+                  />
+                </div>
+                <div class="asset-value" style="margin-top: 20px">
+                  <span>Total Value:</span>
+                  <strong id="cashValue">₹0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="assets-summary">
+              <div class="summary-card">
+                <h4>Total Additional Assets</h4>
+                <div class="summary-value" id="totalAdditionalAssets">₹0</div>
+              </div>
+              <div class="summary-card">
+                <h4>Combined Portfolio Value</h4>
+                <div class="summary-value" id="combinedPortfolioValue">₹0</div>
+                <small style="color: var(--text-tertiary)"
+                  >MF + Additional Assets</small
+                >
+              </div>
+            </div>
+          </div>
+        </section>
+        <section id="main">
+          <div class="summary-cards">
+            <div class="card">
+              <h3>Current Value</h3>
+              <div class="value">₹<span id="currentValue">0</span></div>
+              <div class="subtext">Current MF Holdings Value</div>
+            </div>
+            <div class="card">
+              <h3>Current Cost</h3>
+              <div class="value">₹<span id="costBasis">0</span></div>
+              <div class="subtext">Cost of Current MF Holdings</div>
+            </div>
+            <div class="card">
+              <h3>Unrealized P&L</h3>
+              <div class="value" id="unrealizedGain">₹0</div>
+              <div class="subtext" id="unrealizedGainPercent">
+                0% | XIRR: --
+              </div>
+            </div>
+            <div class="card">
+              <h3>Current Holdings</h3>
+              <div class="value" id="totalHoldings">0</div>
+              <div class="subtext">
+                With <span id="avgHoldingDays"></span> Avg. holding days
+              </div>
+            </div>
+            <div class="card hidden">
+              <h3>Avg. Holding Days</h3>
+              <div class="value" id="avgHoldingDays">0</div>
+              <div class="subtext">Average Holding Period</div>
+            </div>
+            <div class="card hidden">
+              <h3>All-Time Invested</h3>
+              <div class="value">₹<span id="totalInvested">0</span></div>
+              <div class="subtext">Total Investment Till Date</div>
+            </div>
+            <div class="card hidden">
+              <h3>All-Time Withdrawn</h3>
+              <div class="value">₹<span id="totalWithdrawn">0</span></div>
+              <div class="subtext">Total Redemptions Made Till Date</div>
+            </div>
+            <div class="card">
+              <h3>All-Time P&L</h3>
+              <div class="value" id="overallGain">₹0</div>
+              <div class="subtext" id="overallGainPercent">0% | XIRR: --</div>
+            </div>
+            <div class="card hidden">
+              <h3>Realized P&L</h3>
+              <div class="value" id="realizedGain">₹0</div>
+              <div class="subtext" id="realizedGainPercent">0%</div>
+            </div>
+          </div>
+          <div class="compact-dashboard" id="compactDashboard">
+            <div class="compact-summary-card">
+              <div class="compact-header">
+                <h3>HOLDINGS (<span id="compactHoldingsCount">0</span>)</h3>
+                <h2 class="compact-total-value">
+                  ₹<span id="compactTotalValue">0</span>
+                </h2>
+              </div>
+
+              <div class="compact-stats">
+                <div class="compact-stat-row">
+                  <span class="stat-label">1D Returns</span>
+                  <span class="stat-value positive" id="compact1DReturns"
+                    >₹0 (0%)</span
+                  >
+                </div>
+
+                <div class="compact-stat-row">
+                  <span class="stat-label">P&L</span>
+                  <span class="stat-value positive" id="compactTotalReturns"
+                    >₹0 (0%)</span
+                  >
+                </div>
+
+                <div class="compact-stat-row">
+                  <span class="stat-label">Invested</span>
+                  <span class="stat-value" id="compactInvested">₹0</span>
+                </div>
+
+                <div class="compact-stat-row">
+                  <span class="stat-label">XIRR</span>
+                  <span class="stat-value" id="compactXIRR">0%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="compact-controls">
+              <button class="compact-sort-btn" onclick="toggleCompactXIRR()">
+                <span>1D Returns %</span>
+                <i class="fa-solid fa-sort"></i>
+              </button>
+              <button class="compact-filter-btn" onclick="toggleCompactSort()">
+                <span>Current Value</span>
+                <i class="fa-solid fa-sort"></i>
+              </button>
+            </div>
+
+            <div class="compact-holdings-list" id="compactHoldingsList"></div>
+          </div>
+          <div class="portfolio-analytics-section">
+            <h3>Portfolio Analytics</h3>
+            <div class="analytics-grid">
+              <div class="analytics-card loading" id="asset-market-cap-split">
+                <div id="assetAllocationCard">
+                  <h4>Asset Allocation</h4>
+                  <div class="chart-wrapper">
+                    <div class="chart-loading">
+                      <div class="chart-spinner"></div>
+                    </div>
+                    <canvas id="assetAllocationChart"></canvas>
+                  </div>
+                </div>
+                <div>
+                  <h4>Equity Market Cap Split</h4>
+                  <div class="chart-wrapper" id="marketCapCard">
+                    <div class="chart-loading">
+                      <div class="chart-spinner"></div>
+                    </div>
+                    <canvas id="marketCapChart"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="analytics-card loading" id="amcCard">
+                <h4>Fund House Distribution</h4>
+                <div class="chart-wrapper">
+                  <div class="chart-loading">
+                    <div class="chart-spinner"></div>
+                  </div>
+                  <canvas id="amcChart"></canvas>
+                </div>
+              </div>
+              <div class="analytics-card loading" id="sectorCard">
+                <h4>Equity Sector Distribution</h4>
+                <div class="chart-wrapper">
+                  <div class="chart-loading">
+                    <div class="chart-spinner"></div>
+                  </div>
+                  <canvas id="sectorChart"></canvas>
+                </div>
+              </div>
+              <div class="analytics-card loading" id="holdingsCard">
+                <h4>
+                  Portfolio Holdings
+                  <button
+                    class="holdings-eye-btn"
+                    title="View Holdings"
+                    onclick="showAllPortfolioHoldings()"
+                  >
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </h4>
+                <div class="chart-wrapper">
+                  <div class="chart-loading">
+                    <div class="chart-spinner"></div>
+                  </div>
+                  <canvas id="holdingsChart"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="weighted-returns-section">
+              <h4>Weighted Portfolio Returns</h4>
+              <div class="returns-grid" id="weightedReturnsContainer"></div>
+            </div>
+          </div>
+        </section>
+        <section id="current-holding">
+          <div class="folio-section">
+            <div class="folio-grid" id="currentFolioGrid"></div>
+          </div>
+        </section>
+        <section id="past-holding">
+          <div id="pastSection" class="past-section folio-section">
+            <div id="pastFolioGrid" class="folio-grid"></div>
+          </div>
+          <div class="compact-dashboard" id="compactPastDashboard"></div>
+        </section>
+        <section id="charts">
+          <div class="chart-section">
+            <div class="section-header">
+              <h3>📊 Portfolio History</h3>
+              <p class="section-subtitle">
+                Your Portfolio Journey - Investments & Withdrawals
+              </p>
+            </div>
+            <div class="chart-tabs">
+              <button class="tab-btn active" onclick="switchTab('growth')">
+                Portfolio Growth
+              </button>
+              <button class="tab-btn" onclick="switchTab('investment')">
+                Investment
+              </button>
+              <button class="tab-btn" onclick="switchTab('withdrawal')">
+                Withdrawal
+              </button>
+              <button class="tab-btn" onclick="switchTab('netinvest')">
+                Net Investment
+              </button>
+            </div>
+
+            <div class="time-filter" id="timeFilter"></div>
+
+            <div class="chart-container">
+              <canvas id="portfolioChart"></canvas>
+            </div>
+
+            <div class="stats-grid hidden" id="statsGrid"></div>
+          </div>
+          <div id="monthlySummarySection"></div>
+        </section>
+        <section id="transactions">
+          <div class="excel"></div>
+        </section>
+        <section id="capital-gains">
+          <div id="capitalGainsContent"></div>
+        </section>
+        <section id="tax-planning">
+          <div id="taxPlanningContent"></div>
+        </section>
+        <section id="overlap-analysis">
+          <div id="overlapContent"></div>
+        </section>
+
+        <section id="expense-impact">
+          <div id="expenseContent"></div>
+        </section>
+
+        <section id="health-score">
+          <div id="healthScoreContent"></div>
+        </section>
+        <section id="family-dashboard">
+          <div class="compact-dashboard" id="compactFamilyDashboard"></div>
+          <div class="family-header">
+            <h2>👨‍👩‍👧‍👦 Family Portfolio Dashboard</h2>
+            <p class="family-subtitle">
+              Aggregated view across all family members
+            </p>
+          </div>
+
+          <div class="summary-cards" id="familySummaryCards"></div>
+
+          <div class="portfolio-analytics-section">
+            <h3>Family Portfolio Analytics</h3>
+            <div class="analytics-grid">
+              <div
+                class="analytics-card loading"
+                id="family-asset-market-cap-split"
+              >
+                <div id="familyAssetAllocationCard">
+                  <h4>Asset Allocation</h4>
+                  <div class="chart-wrapper">
+                    <div class="chart-loading">
+                      <div class="chart-spinner"></div>
+                    </div>
+                    <canvas id="familyAssetAllocationChart"></canvas>
+                  </div>
+                </div>
+                <div id="familyMarketCapCard">
+                  <h4>Equity Market Cap Split</h4>
+                  <div class="chart-wrapper">
+                    <div class="chart-loading">
+                      <div class="chart-spinner"></div>
+                    </div>
+                    <canvas id="familyMarketCapChart"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="analytics-card loading" id="familyAmcCard">
+                <h4>Fund House Distribution</h4>
+                <div class="chart-wrapper">
+                  <div class="chart-loading">
+                    <div class="chart-spinner"></div>
+                  </div>
+                  <canvas id="familyAmcChart"></canvas>
+                </div>
+              </div>
+              <div class="analytics-card loading" id="familySectorCard">
+                <h4>Equity Sector Distribution</h4>
+                <div class="chart-wrapper">
+                  <div class="chart-loading">
+                    <div class="chart-spinner"></div>
+                  </div>
+                  <canvas id="familySectorChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="weighted-returns-section">
+              <h4>Family Weighted Portfolio Returns</h4>
+              <div
+                class="returns-grid"
+                id="familyWeightedReturnsContainer"
+              ></div>
+            </div>
+          </div>
+
+          <div class="folio-section">
+            <h3>Family Holdings Breakdown</h3>
+            <div id="familyUserBreakdown"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <!-- customisations -->
+    <script src="cas-parser.js?v=20260114"></script>
+    <script src="stats.js?v=20260114"></script>
+    <!-- customisations -->
+    <script src="indexeddb-helper.js?v=20260114"></script>
+    <script src="utils.js?v=20260114"></script>
+    <script src="scripts.js?v=20260114"></script>
+  </body>
+</html>
