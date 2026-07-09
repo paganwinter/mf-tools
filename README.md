@@ -15,6 +15,15 @@ Utility for Indian Mutual Funds
 > If funds list is outdated, update [data/NAVOpen.txt](data/NAVOpen.txt) with https://www.amfiindia.com/spages/NAVOpen.txt
 
 
+### Portfolio
+- https://paganwinter.github.io/mf-tools/portfolio
+  - https://paganwinter.github.io/mf-tools/portfolio/others/mf-dashboard.github.io
+  - https://paganwinter.github.io/mf-tools/portfolio/others/copilot
+  - https://paganwinter.github.io/mf-tools/portfolio/others/claude
+  - https://paganwinter.github.io/mf-tools/portfolio/others/maharshi-me-investments
+  - https://paganwinter.github.io/mf-tools/portfolio/others/mitra
+
+
 old version: https://paganwinter.github.io/mf-tools/index.html
 
 <!-- ## Download data

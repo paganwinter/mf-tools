@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MF Portfolio Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ── RESET & TOKENS ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #f7f6f3;
+  --bg2:       #efeee9;
+  --bg3:       #e6e4dd;
+  --surface:   #ffffff;
+  --border:    #dddbd3;
+  --border2:   #c9c7be;
+  --text:      #1a1916;
+  --text2:     #5a5850;
+  --text3:     #9a9890;
+  --accent:    #1d4ed8;
+  --accent-bg: #eff3ff;
+  --green:     #0e6640;
+  --green-bg:  #edfaf3;
+  --red:       #b91c1c;
+  --red-bg:    #fff1f1;
+  --amber:     #92400e;
+  --amber-bg:  #fffbeb;
+  --mono:      'IBM Plex Mono', monospace;
+  --serif:     'Instrument Serif', serif;
+  --sans:      'Geist', sans-serif;
+  --shadow:    0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04);
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── UPLOAD SCREEN ──────────────────────────────────────────────────────── */
+#upload-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-size: 32px;
+  color: var(--text);
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.wordmark em { font-style: italic; color: var(--accent); }
+
+.tagline {
+  font-size: 13px;
+  color: var(--text3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 52px;
+}
+
+.drop-zone {
+  width: 100%;
+  max-width: 520px;
+  border: 2px dashed var(--border2);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 52px 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  box-shadow: var(--shadow-lg);
+}
+.drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.drop-icon {
+  width: 52px; height: 52px;
+  background: var(--bg2);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  margin: 0 auto 20px;
+  border: 1px solid var(--border);
+}
+
+.drop-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.drop-sub { font-size: 13px; color: var(--text3); margin-bottom: 24px; }
+
+.btn-primary {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  transition: opacity 0.15s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(29,78,216,0.25);
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+
+.privacy-note {
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--text3);
+}
+
+#parse-error {
+  margin-top: 16px;
+  background: var(--red-bg);
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: var(--red);
+  font-size: 13px;
+  display: none;
+  max-width: 520px;
+  width: 100%;
+}
+
+/* ── LOADING ────────────────────────────────────────────────────────────── */
+#loading-screen {
+  display: none;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--text3); }
+
+/* ── DASHBOARD ──────────────────────────────────────────────────────────── */
+#dashboard { display: none; min-height: 100vh; }
+
+/* Header */
+.dash-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 54px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 0 var(--border);
+}
+.header-wordmark { font-family: var(--serif); font-size: 18px; letter-spacing: -0.01em; }
+.header-wordmark em { font-style: italic; color: var(--accent); }
+.header-meta { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-left: 2px; }
+.header-spacer { flex: 1; }
+.btn-reset {
+  font-size: 12px; color: var(--red); background: var(--red-bg);
+  border: 1px solid #fca5a5; padding: 5px 12px; border-radius: 6px;
+  cursor: pointer; font-weight: 500; font-family: var(--sans);
+  transition: background 0.15s;
+}
+.btn-reset:hover { background: #fee2e2; }
+
+/* PAN pill selector */
+.pan-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pan-label { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-right: 4px; }
+
+.pan-pill {
+  padding: 4px 13px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--mono);
+  border: 1.5px solid var(--border2);
+  background: var(--surface);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.pan-pill:hover { border-color: var(--accent); color: var(--accent); }
+.pan-pill.active { color: #fff; border-color: transparent; }
+.pan-pill.all { border-color: var(--border2); }
+.pan-pill.all.active { background: var(--text); }
+
+/* Main content */
+.dash-body { max-width: 1280px; margin: 0 auto; padding: 24px 28px 60px; }
+
+/* ── STAT CARDS ─────────────────────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-family: var(--mono);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.1;
+}
+.stat-value.pos { color: var(--green); }
+.stat-value.neg { color: var(--red); }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+/* ── TABLE CARD ─────────────────────────────────────────────────────────── */
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+.table-card-header {
+  padding: 13px 18px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.table-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text2);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.table-card-meta { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+/* Table */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  text-align: right;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table th:first-child { text-align: left; }
+.data-table td {
+  text-align: right;
+  padding: 11px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table td:first-child { text-align: left; font-family: var(--sans); white-space: normal; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover td { background: var(--bg); }
+.data-table tbody tr.total-row td {
+  font-weight: 600;
+  background: var(--accent-bg);
+  border-top: 1.5px solid #c7d2fe;
+  border-bottom: none;
+}
+
+/* Expandable scheme rows */
+.scheme-name-cell { display: flex; flex-direction: column; gap: 2px; }
+.scheme-name { font-size: 13px; font-weight: 500; color: var(--text); }
+.scheme-isin { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.scheme-amc  { font-size: 11px; color: var(--text2); }
+
+.toggle-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 10px; padding: 0 6px 0 0;
+  line-height: 1; flex-shrink: 0; margin-top: 3px;
+}
+.toggle-btn:hover { color: var(--accent); }
+
+.expand-wrap { display: flex; align-items: flex-start; gap: 4px; }
+
+/* Sub-rows for PAN breakdown per scheme */
+.sub-row td { background: #fafaf8; font-size: 11px; }
+.sub-row td:first-child { padding-left: 32px; }
+.sub-row:hover td { background: var(--bg2) !important; }
+
+.pan-chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Transaction drawer */
+.txn-drawer { display: none; }
+.txn-drawer.open { display: table-row-group; }
+.txn-drawer-inner td {
+  background: var(--bg2) !important;
+  padding: 0 !important;
+  border-bottom: 2px solid var(--border2) !important;
+}
+.txn-inner-wrap { padding: 16px 18px 16px 32px; }
+.txn-inner-title {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px;
+}
+.txn-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.txn-table th {
+  text-align: left; padding: 5px 10px;
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.txn-table th:not(:first-child) { text-align: right; }
+.txn-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); font-family: var(--mono); color: var(--text); }
+.txn-table td:first-child { font-family: var(--sans); font-size: 11px; }
+.txn-table td:nth-child(2) { text-align: left; }
+.txn-table td:not(:first-child):not(:nth-child(2)) { text-align: right; }
+.txn-table tbody tr:last-child td { border-bottom: none; }
+.txn-table tbody tr:hover td { background: var(--bg3); }
+
+/* Type badges */
+.badge {
+  display: inline-block;
+  font-size: 10px; font-weight: 600;
+  padding: 1px 7px; border-radius: 4px;
+  font-family: var(--sans);
+}
+.badge-sip, .badge-purchase  { background: var(--green-bg); color: var(--green); }
+.badge-redemption, .badge-reversal { background: var(--red-bg); color: var(--red); }
+.badge-tax  { background: var(--amber-bg); color: var(--amber); }
+.badge-dividend, .badge-idcw { background: #eff6ff; color: #1d4ed8; }
+.badge-switch_in  { background: #f0fdf4; color: #15803d; }
+.badge-switch_out { background: #fef9ee; color: #b45309; }
+.badge-default { background: var(--bg2); color: var(--text2); }
+
+/* ── CAPITAL GAINS ──────────────────────────────────────────────────────── */
+.gains-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+.gain-card {
+  flex: 1; min-width: 190px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.gain-scheme { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 8px; line-height: 1.3; }
+.gain-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.gain-row:last-child { margin-bottom: 0; }
+.gain-label { color: var(--text3); }
+.gain-val { font-family: var(--mono); font-weight: 600; }
+.gain-val.pos { color: var(--amber); }
+.gain-val.zero { color: var(--green); }
+
+/* Misc */
+.empty-msg { padding: 32px; text-align: center; color: var(--text3); font-size: 13px; }
+.section-gap { margin-bottom: 24px; }
+
+/* Fade in */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeUp 0.35s ease both; }
+.fade-in-2 { animation: fadeUp 0.35s 0.07s ease both; }
+.fade-in-3 { animation: fadeUp 0.35s 0.14s ease both; }
+.fade-in-4 { animation: fadeUp 0.35s 0.21s ease both; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     UPLOAD SCREEN
+══════════════════════════════════════════════════════════ -->
+<div id="upload-screen">
+  <div class="wordmark">Portfolio <em>Lens</em></div>
+  <div class="tagline">Mutual Fund Dashboard · CAS Analytics</div>
+
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" accept=".pdf" id="file-input" />
+    <div class="drop-icon">📄</div>
+    <div class="drop-title">Drop your CAS PDF here</div>
+    <div class="drop-sub">CAMS · KFintech · MF Central</div>
+    <button class="btn-primary" onclick="document.getElementById('file-input').click(); event.stopPropagation();">Choose PDF</button>
+  </div>
+  <div class="privacy-note">🔒 All processing is local — nothing leaves your browser</div>
+  <div id="parse-error"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     LOADING
+══════════════════════════════════════════════════════════ -->
+<div id="loading-screen" style="display:none; min-height:100vh; flex-direction:column; align-items:center; justify-content:center; gap:14px;">
+  <div class="spinner"></div>
+  <div class="loading-text">Reading CAS PDF…</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     DASHBOARD
+══════════════════════════════════════════════════════════ -->
+<div id="dashboard" style="display:none;">
+  <div class="dash-header">
+    <div class="header-wordmark">Portfolio <em>Lens</em></div>
+    <div class="header-meta" id="header-meta"></div>
+    <div class="header-spacer"></div>
+    <button class="btn-reset" onclick="resetDashboard()">↩ New CAS</button>
+  </div>
+
+  <!-- PAN selector -->
+  <div class="pan-bar" id="pan-bar"></div>
+
+  <div class="dash-body" id="dash-body"></div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  ██████╗  █████╗ ██████╗ ███████╗███████╗██████╗
+//  ██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔════╝██╔══██╗
+//  ██████╔╝███████║██████╔╝███████╗█████╗  ██████╔╝
+//  ██╔═══╝ ██╔══██║██╔══██╗╚════██║██╔══╝  ██╔══██╗
+//  ██║     ██║  ██║██║  ██║███████║███████╗██║  ██║
+//  ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝
+//
+//  ┌─────────────────────────────────────────────────────────────────────┐
+//  │  PLUG YOUR PARSER IN HERE                                           │
+//  │                                                                     │
+//  │  Replace the function below with your actual CAS parser.            │
+//  │  It receives a File object and must return (or resolve to)          │
+//  │  an array of folio objects.                                         │
+//  │                                                                     │
+//  │  Expected folio shape:                                              │
+//  │  {                                                                  │
+//  │    pan          : string           // "ABCDE1234F"                  │
+//  │    folio_number : string           // "1234567/89"                  │
+//  │    scheme_name  : string                                            │
+//  │    isin         : string           // optional but recommended      │
+//  │    amc          : string           // optional                      │
+//  │    category     : string           // optional "Equity" etc.        │
+//  │    closing_units: number                                            │
+//  │    closing_nav  : number                                            │
+//  │    transactions : [                                                 │
+//  │      {                                                              │
+//  │        date    : string  // "YYYY-MM-DD" or parseable              │
+//  │        type    : string  // "sip"|"purchase"|"redemption"|...      │
+//  │        amount  : number  // positive always                        │
+//  │        units   : number  // positive for buy, positive for sell    │
+//  │        nav     : number                                            │
+//  │      }                                                              │
+//  │    ]                                                                │
+//  │  }                                                                  │
+//  └─────────────────────────────────────────────────────────────────────┘
+
+async function parseCASFile(file) {
+  // ── DEMO DATA – replace this entire function with your parser ──────────
+  await new Promise(r => setTimeout(r, 900)); // simulate async parse
+  return DEMO_FOLIOS;
+}
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── DEMO DATA ─────────────────────────────────────────────────────────────
+const DEMO_FOLIOS = [
+  { pan:"ABCDE1234F", folio_number:"1234567/89", scheme_name:"Axis Bluechip Fund – Direct Growth", isin:"INF109K01VQ1", amc:"Axis Mutual Fund", category:"Equity", closing_units:245.678, closing_nav:52.34,
+    transactions:[
+      {date:"2023-04-05",type:"sip",     amount:5000,  units:105.234, nav:47.51},
+      {date:"2023-07-05",type:"sip",     amount:5000,  units:99.206,  nav:50.40},
+      {date:"2023-10-05",type:"sip",     amount:5000,  units:98.425,  nav:50.80},
+      {date:"2024-01-05",type:"sip",     amount:5000,  units:97.847,  nav:51.10},
+      {date:"2024-02-15",type:"redemption",amount:5200,units:99.234,  nav:52.40},
+    ]},
+  { pan:"ABCDE1234F", folio_number:"9876543/21", scheme_name:"Axis Bluechip Fund – Direct Growth", isin:"INF109K01VQ1", amc:"Axis Mutual Fund", category:"Equity", closing_units:88.123, closing_nav:52.34,
+    transactions:[
+      {date:"2023-06-15",type:"purchase",amount:4500,  units:88.123,  nav:51.07},
+    ]},
+  { pan:"ABCDE1234F", folio_number:"1234567/89", scheme_name:"Kotak Flexi Cap Fund – Direct Growth", isin:"INF174K01LS2", amc:"Kotak Mahindra", category:"Equity", closing_units:312.450, closing_nav:68.90,
+    transactions:[
+      {date:"2023-05-10",type:"purchase",amount:10000, units:154.320, nav:64.80},
+      {date:"2023-11-10",type:"sip",     amount:5000,  units:74.960,  nav:66.70},
+      {date:"2024-02-10",type:"sip",     amount:5000,  units:73.170,  nav:68.34},
+    ]},
+  { pan:"ABCDE1234F", folio_number:"1122334/55", scheme_name:"Mirae Asset ELSS Tax Saver – Direct Growth", isin:"INF769K01EW7", amc:"Mirae Asset", category:"ELSS", closing_units:180.000, closing_nav:41.20,
+    transactions:[
+      {date:"2023-04-01",type:"sip",     amount:3000,  units:75.000,  nav:38.50},
+      {date:"2023-07-01",type:"sip",     amount:3000,  units:72.000,  nav:40.10},
+      {date:"2023-10-01",type:"sip",     amount:3000,  units:69.000,  nav:41.90},
+      {date:"2024-01-15",type:"switch_out",amount:1200,units:30.000,  nav:40.00},
+      {date:"2024-01-15",type:"tax",     amount:45,    units:0,       nav:0},
+    ]},
+  { pan:"XYZPQ5678G", folio_number:"5544332/10", scheme_name:"SBI Nifty Index Fund – Direct Growth", isin:"INF200K01RB2", amc:"SBI Mutual Fund", category:"Index", closing_units:520.000, closing_nav:198.45,
+    transactions:[
+      {date:"2023-04-01",type:"sip",     amount:10000, units:52.910,  nav:189.00},
+      {date:"2023-07-01",type:"sip",     amount:10000, units:51.710,  nav:193.40},
+      {date:"2023-10-01",type:"sip",     amount:10000, units:51.390,  nav:194.60},
+      {date:"2024-01-01",type:"sip",     amount:10000, units:50.890,  nav:196.50},
+      {date:"2024-01-25",type:"redemption",amount:9800,units:49.380,  nav:198.45},
+      {date:"2024-03-01",type:"dividend",amount:850,   units:0,       nav:0},
+    ]},
+  { pan:"XYZPQ5678G", folio_number:"5544332/10", scheme_name:"Axis Bluechip Fund – Direct Growth", isin:"INF109K01VQ1", amc:"Axis Mutual Fund", category:"Equity", closing_units:60.000, closing_nav:52.34,
+    transactions:[
+      {date:"2023-08-10",type:"purchase",amount:3000,  units:60.000,  nav:50.00},
+    ]},
+  { pan:"XYZPQ5678G", folio_number:"9988776/33", scheme_name:"HDFC Short Term Debt Fund – Direct Growth", isin:"INF179KB1CR2", amc:"HDFC Mutual Fund", category:"Debt", closing_units:430.000, closing_nav:26.18,
+    transactions:[
+      {date:"2023-05-20",type:"purchase",amount:5000,  units:204.167, nav:24.49},
+      {date:"2023-09-20",type:"purchase",amount:5000,  units:200.400, nav:24.95},
+      {date:"2024-02-28",type:"redemption",amount:4800,units:185.567, nav:25.87},
+    ]},
+];
+
+// ── XIRR ──────────────────────────────────────────────────────────────────
+function xirr(cashflows) {
+  if (!cashflows || cashflows.length < 2) return null;
+  const sorted = [...cashflows].sort((a,b) => new Date(a.date)-new Date(b.date));
+  const t0 = new Date(sorted[0].date).getTime();
+  const years = sorted.map(cf => (new Date(cf.date).getTime()-t0)/(365.25*24*3600*1000));
+  const amounts = sorted.map(cf => cf.amount);
+  const npv  = r => amounts.reduce((s,a,i)=> s+a/Math.pow(1+r,years[i]),0);
+  const dnpv = r => amounts.reduce((s,a,i)=> s-(years[i]*a)/Math.pow(1+r,years[i]+1),0);
+  let rate=0.1;
+  for(let i=0;i<200;i++){
+    const v=npv(rate),dv=dnpv(rate);
+    if(Math.abs(v)<1e-8||dv===0) break;
+    rate-=v/dv;
+    if(rate<=-1) rate=-0.999;
+  }
+  return !isFinite(rate)||isNaN(rate)?null:rate;
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+const INR = v => v==null?"—":new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(v);
+const PCT = v => v==null?"—":`${v>=0?"+":""}${v.toFixed(2)}%`;
+const NUM = (v,d=3)=> v==null?"—":v.toLocaleString("en-IN",{maximumFractionDigits:d});
+
+function pctClass(v) { return v>0?"pos":v<0?"neg":""; }
+
+const BUY_TYPES  = new Set(["sip","purchase","switch_in","reinvestment"]);
+const SELL_TYPES = new Set(["redemption","switch_out"]);
+
+function isBuy(t)  { return BUY_TYPES.has(t.type?.toLowerCase()); }
+function isSell(t) { return SELL_TYPES.has(t.type?.toLowerCase()); }
+
+function badgeClass(type) {
+  const t = (type||"").toLowerCase();
+  if(BUY_TYPES.has(t)) return t==="sip"?"badge-sip":"badge-purchase";
+  if(t==="redemption") return "badge-redemption";
+  if(t==="reversal")   return "badge-reversal";
+  if(t==="tax")        return "badge-tax";
+  if(t==="switch_in")  return "badge-switch_in";
+  if(t==="switch_out") return "badge-switch_out";
+  if(t==="dividend"||t==="idcw") return "badge-dividend";
+  return "badge-default";
+}
+
+// ── FIFO GAINS ────────────────────────────────────────────────────────────
+function calcGains(transactions) {
+  const buys  = transactions.filter(isBuy).map(t=>({...t,remaining:t.units}));
+  const sells = transactions.filter(isSell);
+  let stcg=0, ltcg=0;
+  for(const sell of sells){
+    let toSell=sell.units;
+    for(const lot of buys){
+      if(toSell<=0||lot.remaining<=0) continue;
+      const used=Math.min(lot.remaining,toSell);
+      const gain=used*(sell.nav-lot.nav);
+      const days=(new Date(sell.date)-new Date(lot.date))/(1000*3600*24);
+      if(days<365) stcg+=gain; else ltcg+=gain;
+      lot.remaining-=used; toSell-=used;
+    }
+  }
+  return {stcg,ltcg};
+}
+
+// ── COMPUTE SCHEME METRICS ────────────────────────────────────────────────
+function schemeMetrics(folios) {
+  // folios: array of folios with the same ISIN (or scheme_name fallback)
+  const allTxns = folios.flatMap(f=>f.transactions.map(t=>({...t,folio:f.folio_number,pan:f.pan})));
+  const buys    = allTxns.filter(isBuy);
+  const sells   = allTxns.filter(isSell);
+  const invested  = buys.reduce((s,t)=>s+t.amount,0);
+  const redeemed  = sells.reduce((s,t)=>s+t.amount,0);
+  const netInvested = invested - redeemed;
+  const closingUnits = folios.reduce((s,f)=>s+f.closing_units,0);
+  const closingNAV   = folios[0].closing_nav; // same ISIN → same NAV
+  const currentValue = closingUnits*closingNAV;
+  const absReturn = netInvested>0?((currentValue-netInvested)/netInvested)*100:0;
+  const today = new Date().toISOString().split("T")[0];
+  const cfs = [
+    ...buys.map(t=>({date:t.date,amount:-t.amount})),
+    ...sells.map(t=>({date:t.date,amount:t.amount})),
+    ...(currentValue>0?[{date:today,amount:currentValue}]:[])
+  ];
+  const xirrRate = xirr(cfs);
+  const gains = calcGains(allTxns);
+  const avgCostNav = closingUnits>0?netInvested/closingUnits:0;
+
+  // Per-PAN breakdown
+  const pans = [...new Set(folios.map(f=>f.pan))];
+  const perPAN = {};
+  for(const pan of pans){
+    const pf = folios.filter(f=>f.pan===pan);
+    const pt = pf.flatMap(f=>f.transactions);
+    const pb = pt.filter(isBuy), ps = pt.filter(isSell);
+    const pi = pb.reduce((s,t)=>s+t.amount,0);
+    const pr = ps.reduce((s,t)=>s+t.amount,0);
+    const pni = pi-pr;
+    const pu = pf.reduce((s,f)=>s+f.closing_units,0);
+    const pv = pu*closingNAV;
+    const par = pni>0?((pv-pni)/pni)*100:0;
+    const pcs = [...pb.map(t=>({date:t.date,amount:-t.amount})),...ps.map(t=>({date:t.date,amount:t.amount})),...(pv>0?[{date:today,amount:pv}]:[])];
+    perPAN[pan] = { invested:pi, redeemed:pr, netInvested:pni, closingUnits:pu, currentValue:pv, absReturn:par, xirr:(xirr(pcs)??0)*100 };
+  }
+
+  return { invested, redeemed, netInvested, closingUnits, closingNAV, currentValue, absReturn, xirr:xirrRate!=null?xirrRate*100:null, gains, avgCostNav, perPAN, allTxns, folios };
+}
+
+// ── PORTFOLIO ANALYTICS ────────────────────────────────────────────────────
+function buildPortfolio(folios, selectedPANs) {
+  const filtered = selectedPANs.length?folios.filter(f=>selectedPANs.includes(f.pan)):folios;
+
+  // Group by ISIN (fallback to scheme_name)
+  const byISIN = {};
+  for(const f of filtered){
+    const key = f.isin||f.scheme_name;
+    if(!byISIN[key]) byISIN[key]={name:f.scheme_name, isin:f.isin, amc:f.amc, category:f.category, folios:[]};
+    byISIN[key].folios.push(f);
+  }
+
+  const schemes = Object.values(byISIN).map(g=>({name:g.name,isin:g.isin,amc:g.amc,category:g.category,...schemeMetrics(g.folios)}));
+
+  const today = new Date().toISOString().split("T")[0];
+  const totalInvested = schemes.reduce((s,x)=>s+x.netInvested,0);
+  const totalCurrentValue = schemes.reduce((s,x)=>s+x.currentValue,0);
+  const totalAbsReturn = totalInvested>0?((totalCurrentValue-totalInvested)/totalInvested)*100:0;
+  const portfolioCFs = [
+    ...schemes.flatMap(x=>[...x.allTxns.filter(isBuy).map(t=>({date:t.date,amount:-t.amount})),...x.allTxns.filter(isSell).map(t=>({date:t.date,amount:t.amount}))]),
+    ...(totalCurrentValue>0?[{date:today,amount:totalCurrentValue}]:[])
+  ];
+  const portfolioXIRR = xirr(portfolioCFs);
+  const totalPnL = totalCurrentValue-totalInvested;
+
+  return {schemes,totalInvested,totalCurrentValue,totalAbsReturn,portfolioXIRR:portfolioXIRR!=null?portfolioXIRR*100:null,totalPnL};
+}
+
+// ── PAN COLOR MAP ─────────────────────────────────────────────────────────
+const PAN_COLORS = ["#1d4ed8","#0891b2","#7c3aed","#0d9488","#b45309","#be185d"];
+let panColorMap = {};
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let allFolios = [];
+let allPANs   = [];
+let selectedPANs = [];
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────────
+const fileInput = document.getElementById("file-input");
+const dropZone  = document.getElementById("drop-zone");
+
+fileInput.addEventListener("change", e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); });
+dropZone.addEventListener("dragover", e=>{ e.preventDefault(); dropZone.classList.add("drag-over"); });
+dropZone.addEventListener("dragleave",()=> dropZone.classList.remove("drag-over"));
+dropZone.addEventListener("drop", e=>{ e.preventDefault(); dropZone.classList.remove("drag-over"); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+async function handleFile(file) {
+  showScreen("loading");
+  document.getElementById("parse-error").style.display="none";
+  try {
+    const folios = await parseCASFile(file);
+    if(!Array.isArray(folios)||folios.length===0) throw new Error("Parser returned no folios.");
+    initDashboard(folios, file.name);
+  } catch(err) {
+    showScreen("upload");
+    const errEl = document.getElementById("parse-error");
+    errEl.textContent = "⚠ " + err.message;
+    errEl.style.display="block";
+  }
+}
+
+function showScreen(name) {
+  document.getElementById("upload-screen").style.display  = name==="upload"  ?"flex":"none";
+  document.getElementById("loading-screen").style.display = name==="loading" ?"flex":"none";
+  document.getElementById("dashboard").style.display      = name==="dash"    ?"block":"none";
+}
+
+function resetDashboard() {
+  allFolios=[]; allPANs=[]; selectedPANs=[]; panColorMap={};
+  fileInput.value="";
+  showScreen("upload");
+}
+
+// ── INIT DASHBOARD ────────────────────────────────────────────────────────
+function initDashboard(folios, filename) {
+  allFolios = folios;
+  allPANs   = [...new Set(folios.map(f=>f.pan))].sort();
+  selectedPANs = [...allPANs];
+  allPANs.forEach((pan,i)=>{ panColorMap[pan]=PAN_COLORS[i%PAN_COLORS.length]; });
+
+  // Header meta
+  const period = folios[0]?.statement_period||"";
+  document.getElementById("header-meta").textContent = [
+    filename, period, `${allPANs.length} PAN${allPANs.length>1?"s":""}`
+  ].filter(Boolean).join("  ·  ");
+
+  buildPANBar();
+  renderDashboard();
+  showScreen("dash");
+}
+
+// ── PAN BAR ───────────────────────────────────────────────────────────────
+function buildPANBar() {
+  const bar = document.getElementById("pan-bar");
+  bar.innerHTML = "";
+
+  const label = document.createElement("span");
+  label.className="pan-label"; label.textContent="Filter PANs";
+  bar.appendChild(label);
+
+  if(allPANs.length>1){
+    const all = document.createElement("button");
+    all.className = "pan-pill all" + (selectedPANs.length===allPANs.length?" active":"");
+    all.textContent="All PANs";
+    all.onclick=()=>{ selectedPANs=[...allPANs]; buildPANBar(); renderDashboard(); };
+    bar.appendChild(all);
+  }
+
+  for(const pan of allPANs){
+    const btn = document.createElement("button");
+    const sel = selectedPANs.includes(pan);
+    btn.className="pan-pill"+(sel?" active":"");
+    if(sel) btn.style.cssText=`background:${panColorMap[pan]};color:#fff;border-color:${panColorMap[pan]};`;
+    btn.textContent = pan;
+    btn.onclick = ()=>{
+      if(sel && selectedPANs.length>1) selectedPANs=selectedPANs.filter(p=>p!==pan);
+      else if(!sel) selectedPANs=[...selectedPANs,pan];
+      buildPANBar(); renderDashboard();
+    };
+    bar.appendChild(btn);
+  }
+}
+
+// ── RENDER DASHBOARD ──────────────────────────────────────────────────────
+function renderDashboard() {
+  const p = buildPortfolio(allFolios, selectedPANs);
+  const body = document.getElementById("dash-body");
+  body.innerHTML="";
+
+  // 1. Summary cards
+  body.appendChild(renderSummaryCards(p));
+
+  // 2. Portfolio overview table (combined + per-PAN if multi-PAN)
+  body.appendChild(renderPortfolioTable(p));
+
+  // 3. Scheme detail table
+  body.appendChild(renderSchemeTable(p));
+
+  // 4. Capital gains
+  body.appendChild(renderCapGains(p));
+}
+
+// ── SUMMARY CARDS ─────────────────────────────────────────────────────────
+function renderSummaryCards(p) {
+  const grid = el("div","stat-grid fade-in");
+  const cards = [
+    {label:"Total Invested",    val:INR(p.totalInvested),    sub:"Net of redemptions", cls:""},
+    {label:"Current Value",     val:INR(p.totalCurrentValue),sub:"At closing NAV",      cls:pctClass(p.totalPnL)},
+    {label:"Unrealised P&L",    val:INR(p.totalPnL),         sub:"Gain / Loss",         cls:pctClass(p.totalPnL)},
+    {label:"Absolute Return",   val:PCT(p.totalAbsReturn),   sub:"Total return %",      cls:pctClass(p.totalAbsReturn)},
+    {label:"Portfolio XIRR",    val:p.portfolioXIRR!=null?PCT(p.portfolioXIRR):"—", sub:"Time-weighted IRR", cls:p.portfolioXIRR!=null?pctClass(p.portfolioXIRR):""},
+    {label:"Active Schemes",    val:p.schemes.length,        sub:`${[...new Set(allFolios.filter(f=>selectedPANs.includes(f.pan)).map(f=>f.folio_number))].length} folios`, cls:""},
+  ];
+  for(const c of cards){
+    const card=el("div","stat-card");
+    card.innerHTML=`<div class="stat-label">${c.label}</div><div class="stat-value ${c.cls}">${c.val}</div><div class="stat-sub">${c.sub}</div>`;
+    grid.appendChild(card);
+  }
+  return grid;
+}
+
+// ── PORTFOLIO TABLE (combined + per-PAN rows) ─────────────────────────────
+function renderPortfolioTable(p) {
+  const wrap = el("div","table-card section-gap fade-in-2");
+  const hdr = el("div","table-card-header");
+  hdr.innerHTML=`<span class="table-card-title">Portfolio Overview</span><span class="table-card-meta">${selectedPANs.length} PAN${selectedPANs.length>1?"s":""} selected</span>`;
+  wrap.appendChild(hdr);
+
+  const tableWrap = el("div"); tableWrap.style.overflowX="auto";
+  const table = el("table","data-table");
+  table.innerHTML=`<thead><tr>
+    <th>Breakdown</th>
+    <th>Current Value</th><th>Invested</th><th>P&L</th><th>Abs Return</th><th>XIRR</th>
+  </tr></thead>`;
+  const tbody = el("tbody");
+
+  // Combined row
+  tbody.appendChild(portfolioRow("All Selected PANs", p.totalCurrentValue, p.totalInvested, p.totalAbsReturn, p.portfolioXIRR, "", false));
+
+  // Per-PAN rows if multiple
+  if(selectedPANs.length>1){
+    let panRowsVisible = true;
+    const toggleRow = el("tr");
+    const toggleTd  = el("td"); toggleTd.colSpan=6;
+    toggleTd.style.cssText="background:var(--accent-bg);cursor:pointer;padding:5px 14px;font-size:11px;color:var(--accent);font-weight:600;border-top:1px solid #c7d2fe;";
+    toggleTd.innerHTML=`<span id="pan-toggle-icon">▾</span> PAN-wise breakdown`;
+    toggleRow.appendChild(toggleTd);
+    tbody.appendChild(toggleRow);
+
+    const panRows = [];
+    for(const pan of selectedPANs){
+      // Per-PAN portfolio totals
+      const pf = allFolios.filter(f=>f.pan===pan&&selectedPANs.includes(f.pan));
+      const pp = buildPortfolio(pf,[pan]);
+      const row = portfolioRow(pan, pp.totalCurrentValue, pp.totalInvested, pp.totalAbsReturn, pp.portfolioXIRR, panColorMap[pan], true);
+      tbody.appendChild(row);
+      panRows.push(row);
+    }
+
+    toggleTd.addEventListener("click",()=>{
+      panRowsVisible=!panRowsVisible;
+      panRows.forEach(r=>r.style.display=panRowsVisible?"":"none");
+      document.getElementById("pan-toggle-icon").textContent=panRowsVisible?"▾":"▸";
+    });
+  }
+
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  wrap.appendChild(tableWrap);
+  return wrap;
+}
+
+function portfolioRow(label, cv, inv, abs, xi, color, indent) {
+  const pnl=cv-inv;
+  const tr=el("tr");
+  if(indent) tr.className="sub-row";
+  const nameCell = indent
+    ? `<span class="pan-chip" style="background:${color}20;color:${color};border:1px solid ${color}30">${label}</span>`
+    : `<strong>${label}</strong>`;
+  tr.innerHTML=`
+    <td style="padding-left:${indent?"28px":"14px"}">${nameCell}</td>
+    <td>${INR(cv)}</td>
+    <td style="color:var(--text2)">${INR(inv)}</td>
+    <td style="color:${pnl>=0?"var(--green)":"var(--red)"}">${INR(pnl)}</td>
+    <td class="${pctClass(abs)}">${PCT(abs)}</td>
+    <td class="${xi!=null?pctClass(xi):""}">${xi!=null?PCT(xi):"—"}</td>`;
+  return tr;
+}
+
+// ── SCHEME TABLE ──────────────────────────────────────────────────────────
+function renderSchemeTable(p) {
+  const wrap = el("div","table-card section-gap fade-in-3");
+  const hdr = el("div","table-card-header");
+  hdr.innerHTML=`<span class="table-card-title">Scheme Breakdown</span><span class="table-card-meta">${p.schemes.length} schemes</span>`;
+  wrap.appendChild(hdr);
+
+  const tableWrap=el("div"); tableWrap.style.overflowX="auto";
+  const table=el("table","data-table");
+  table.innerHTML=`<thead><tr>
+    <th style="min-width:220px">Scheme</th>
+    <th>Current Value</th><th>Invested</th><th>P&L</th><th>Abs Return</th><th>XIRR</th>
+  </tr></thead>`;
+  const tbody=el("tbody");
+
+  const multiPAN = selectedPANs.length>1;
+
+  p.schemes.forEach((s,idx)=>{
+    const pnl=s.currentValue-s.netInvested;
+    const drawerID=`drawer-${idx}`;
+    const hasPerPAN = multiPAN && Object.keys(s.perPAN).length>1;
+
+    // Main scheme row
+    const tr=el("tr"); tr.style.cursor="pointer";
+    const nameHTML=`
+      <div class="expand-wrap">
+        <button class="toggle-btn" id="tog-${idx}">▸</button>
+        <div class="scheme-name-cell">
+          <span class="scheme-name">${s.name}</span>
+          ${s.amc?`<span class="scheme-amc">${s.amc}${s.category?` · ${s.category}`:""}</span>`:""}
+          ${s.isin?`<span class="scheme-isin">${s.isin}</span>`:""}
+        </div>
+      </div>`;
+    tr.innerHTML=`
+      <td>${nameHTML}</td>
+      <td>${INR(s.currentValue)}</td>
+      <td style="color:var(--text2)">${INR(s.netInvested)}</td>
+      <td style="color:${pnl>=0?"var(--green)":"var(--red)"}">${INR(pnl)}</td>
+      <td class="${pctClass(s.absReturn)}">${PCT(s.absReturn)}</td>
+      <td class="${s.xirr!=null?pctClass(s.xirr):""}">${s.xirr!=null?PCT(s.xirr):"—"}</td>`;
+    tbody.appendChild(tr);
+
+    // Per-PAN sub-rows (always visible if multi-PAN)
+    if(hasPerPAN){
+      for(const [pan,pm] of Object.entries(s.perPAN)){
+        if(!selectedPANs.includes(pan)) continue;
+        const spr=el("tr","sub-row");
+        const pp=pm.currentValue-pm.netInvested;
+        spr.innerHTML=`
+          <td style="padding-left:32px"><span class="pan-chip" style="background:${panColorMap[pan]}20;color:${panColorMap[pan]};border:1px solid ${panColorMap[pan]}30">${pan}</span></td>
+          <td style="color:var(--text2)">${INR(pm.currentValue)}</td>
+          <td style="color:var(--text3)">${INR(pm.netInvested)}</td>
+          <td style="color:${pp>=0?"var(--green)":"var(--red)"}">${INR(pp)}</td>
+          <td class="${pctClass(pm.absReturn)}">${PCT(pm.absReturn)}</td>
+          <td class="${pctClass(pm.xirr)}">${PCT(pm.xirr)}</td>`;
+        tbody.appendChild(spr);
+      }
+    }
+
+    // Transaction drawer (collapsed)
+    const drawer=el("tbody","txn-drawer"); drawer.id=drawerID;
+    const drawerTR=el("tr"); const drawerTD=el("td"); drawerTD.colSpan=6;
+    drawerTD.className="txn-drawer-inner";
+
+    // Mini stat strip + transactions
+    const inner=el("div","txn-inner-wrap");
+    // Mini stats
+    const miniStats=el("div"); miniStats.style.cssText="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;";
+    const ms=[
+      ["Closing Units", NUM(s.closingUnits)],
+      ["Avg Cost NAV",  `₹${NUM(s.avgCostNav,2)}`],
+      ["Closing NAV",   `₹${NUM(s.closingNAV,2)}`],
+      ["Unrealised P&L",INR(pnl)],
+    ];
+    for(const [lbl,val] of ms){
+      const mc=el("div"); mc.style.cssText="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:9px 13px;min-width:120px;";
+      mc.innerHTML=`<div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">${lbl}</div><div style="font-family:var(--mono);font-size:14px;font-weight:600;color:${lbl.includes("P&L")?pnl>=0?"var(--green)":"var(--red)":"var(--text)"}">${val}</div>`;
+      miniStats.appendChild(mc);
+    }
+    inner.appendChild(miniStats);
+
+    // Txn title
+    const tt=el("div","txn-inner-title"); tt.textContent="Transaction History"; inner.appendChild(tt);
+
+    // Txn table
+    const txnTable=el("table","txn-table");
+    txnTable.innerHTML=`<thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Units</th><th>NAV</th>${hasPerPAN?"<th>PAN</th>":""}</tr></thead>`;
+    const txnBody=el("tbody");
+    const sorted=[...s.allTxns].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    for(const t of sorted){
+      const tr2=el("tr");
+      const bc=badgeClass(t.type);
+      tr2.innerHTML=`
+        <td style="color:var(--text2)">${t.date}</td>
+        <td><span class="badge ${bc}">${t.type}</span></td>
+        <td>${t.amount>0?INR(t.amount):"—"}</td>
+        <td>${t.units>0?NUM(t.units):"—"}</td>
+        <td>${t.nav>0?"₹"+NUM(t.nav,4):"—"}</td>
+        ${hasPerPAN?`<td><span class="pan-chip" style="font-size:9px;background:${panColorMap[t.pan]||"#eee"}20;color:${panColorMap[t.pan]||"#999"};border:1px solid ${panColorMap[t.pan]||"#ccc"}30">${t.pan||""}</span></td>`:""}`;
+      txnBody.appendChild(tr2);
+    }
+    txnTable.appendChild(txnBody);
+    inner.appendChild(txnTable);
+    drawerTD.appendChild(inner);
+    drawerTR.appendChild(drawerTD);
+    drawer.appendChild(drawerTR);
+    table.appendChild(drawer);
+
+    // Toggle on row click
+    let open=false;
+    tr.addEventListener("click",()=>{
+      open=!open;
+      drawer.className="txn-drawer"+(open?" open":"");
+      document.getElementById(`tog-${idx}`).textContent=open?"▾":"▸";
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  // Total row
+  const totalPnL=p.totalCurrentValue-p.totalInvested;
+  const totTR=el("tr","total-row");
+  totTR.innerHTML=`
+    <td><strong>Portfolio Total</strong></td>
+    <td>${INR(p.totalCurrentValue)}</td>
+    <td>${INR(p.totalInvested)}</td>
+    <td style="color:${totalPnL>=0?"var(--green)":"var(--red)"}">${INR(totalPnL)}</td>
+    <td class="${pctClass(p.totalAbsReturn)}">${PCT(p.totalAbsReturn)}</td>
+    <td class="${p.portfolioXIRR!=null?pctClass(p.portfolioXIRR):""}">${p.portfolioXIRR!=null?PCT(p.portfolioXIRR):"—"}</td>`;
+  tbody.appendChild(totTR);
+
+  table.insertBefore(tbody, table.querySelector("thead").nextSibling);
+  tableWrap.appendChild(table);
+  wrap.appendChild(tableWrap);
+  return wrap;
+}
+
+// ── CAPITAL GAINS ─────────────────────────────────────────────────────────
+function renderCapGains(p) {
+  const wrap=el("div","table-card fade-in-4");
+  const hdr=el("div","table-card-header");
+  const withGains=p.schemes.filter(s=>s.gains.stcg!==0||s.gains.ltcg!==0);
+  hdr.innerHTML=`<span class="table-card-title">Capital Gains · FIFO per folio</span><span class="table-card-meta">${withGains.length} scheme${withGains.length!==1?"s":""} with realised gains</span>`;
+  wrap.appendChild(hdr);
+
+  const body=el("div"); body.style.padding="16px 18px";
+  if(withGains.length===0){
+    body.innerHTML=`<div class="empty-msg">No redemptions in the selected period — no realised capital gains.</div>`;
+  } else {
+    const grid=el("div","gains-grid");
+    for(const s of withGains){
+      const card=el("div","gain-card");
+      card.innerHTML=`
+        <div class="gain-scheme">${s.name}</div>
+        <div class="gain-row">
+          <span class="gain-label">STCG <span style="font-size:9px;color:var(--text3)">(held &lt;1yr)</span></span>
+          <span class="gain-val ${s.gains.stcg>0?"pos":"zero"}">${INR(s.gains.stcg)}</span>
+        </div>
+        <div class="gain-row">
+          <span class="gain-label">LTCG <span style="font-size:9px;color:var(--text3)">(held &gt;1yr)</span></span>
+          <span class="gain-val ${s.gains.ltcg>0?"pos":"zero"}">${INR(s.gains.ltcg)}</span>
+        </div>`;
+      grid.appendChild(card);
+    }
+    // Totals
+    const totSTCG=withGains.reduce((s,x)=>s+x.gains.stcg,0);
+    const totLTCG=withGains.reduce((s,x)=>s+x.gains.ltcg,0);
+    const tot=el("div","gain-card"); tot.style.cssText="background:var(--accent-bg);border-color:#c7d2fe;";
+    tot.innerHTML=`
+      <div class="gain-scheme" style="font-weight:700;color:var(--accent)">Total Gains</div>
+      <div class="gain-row"><span class="gain-label">Total STCG</span><span class="gain-val ${totSTCG>0?"pos":"zero"}">${INR(totSTCG)}</span></div>
+      <div class="gain-row"><span class="gain-label">Total LTCG</span><span class="gain-val ${totLTCG>0?"pos":"zero"}">${INR(totLTCG)}</span></div>
+      <div class="gain-row" style="margin-top:6px;padding-top:6px;border-top:1px solid #c7d2fe"><span class="gain-label" style="font-weight:600">Combined</span><span class="gain-val ${(totSTCG+totLTCG)>0?"pos":"zero"}" style="font-size:14px">${INR(totSTCG+totLTCG)}</span></div>`;
+    grid.appendChild(tot);
+    body.appendChild(grid);
+  }
+  wrap.appendChild(body);
+  return wrap;
+}
+
+// ── DOM HELPER ────────────────────────────────────────────────────────────
+function el(tag, cls) {
+  const e=document.createElement(tag);
+  if(cls) e.className=cls;
+  return e;
+}
+</script>
+</body>
+</html>
