@@ -1132,10 +1132,10 @@ function App() {
     // setMessage('');
     console.log('filtered:', filtered)
 
-    // sort: put Equity categories first, then sort by rolling returns (if rrWindow set)
+    // sort: put Equity and Other categories first, then sort by rolling returns (if rrWindow set)
     filtered = filtered.sort((a, b) => {
-      const aIsEquity = (a.category || '').toLowerCase().startsWith('equity');
-      const bIsEquity = (b.category || '').toLowerCase().startsWith('equity');
+      const aIsEquity = (a.category || '').match(/equity|other/i); // toLowerCase().startsWith('equity');
+      const bIsEquity = (b.category || '').match(/equity|other/i); // toLowerCase().startsWith('equity');
       if (aIsEquity !== bIsEquity) return aIsEquity ? -1 : 1;
       if (rrWindow) {
         const aRR = a.stats?.rollingReturns[rrWindow]?.avg || 0;
